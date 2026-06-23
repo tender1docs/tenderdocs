@@ -55,11 +55,16 @@ jobs:
       - name: Build
         run: npm run build
 
-  # ----------------------------------------------- Publish images (main only)
+  # ----------------------------------------------- Publish images (opt-in)
+  # Only runs when you want the prebuilt-image / auto-deploy path. The default VPS
+  # deploy builds on the server (docker-compose.server.yml) and needs no images here.
+  # Enable by setting repository variable PUBLISH_IMAGES=true AND granting the Actions
+  # token org-level package write (Org → Settings → Actions → Workflow permissions:
+  # Read and write; for org packages also link the package to this repo with write).
   publish:
     name: Publish Docker images
     needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
