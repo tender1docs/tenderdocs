@@ -100,11 +100,14 @@ TenderDocs/
 
 ```bash
 cd TenderDocs/TenderDocs-Backend
+cp .env.example .env          # local-dev defaults (the real .env is gitignored)
 docker compose up --build
 ```
 
-Then open **http://localhost:8080**. The secrets are already in `TenderDocs-Backend/.env`, so no
-extra configuration is required.
+Then open **http://localhost:8080**. The `.env.example` ships with working **local-dev** defaults,
+so it runs as-is — these are **not for production**. For a real deployment, follow
+[`deploy/SERVER-SETUP-RUNBOOK.md`](deploy/SERVER-SETUP-RUNBOOK.md) and
+[`deploy/PRE-DEPLOYMENT-CHECKLIST.md`](deploy/PRE-DEPLOYMENT-CHECKLIST.md).
 
 - **Seeded admin:** `admin@tenderdocs.io` / `Admin@12345` (the app auto-logs-in for you)
 - Reset everything (fresh DB + reseed): `docker compose down -v && docker compose up --build`
