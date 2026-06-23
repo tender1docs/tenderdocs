@@ -116,9 +116,9 @@ extra configuration is required.
 Backend (needs .NET 8 SDK + PostgreSQL):
 ```bash
 cd TenderDocs/TenderDocs-Backend
-export ConnectionStrings__Default="Host=localhost;Port=5432;Database=tenderdocs;Username=tenderdocs;Password=TenderDocs@2025"
-export Jwt__Secret="OsPS3GDfx58cDY0a7GGpO92xoOpQGGcU24OsWl9vC5nUJu2hwJCQDGr8qUQmkwB+"
-export Encryption__Key="dDoTStOyfEBoLkRpQBxgnNk6AjaL+mkBgekAZ36G1r4="
+export ConnectionStrings__Default=
+export Jwt__Secret=
+export Encryption__Key=
 dotnet run --project src/TenderDocs.Api      # serves on http://localhost:8080
 ```
 
