@@ -1,0 +1,14 @@
+# Automatic HTTPS via Let's Encrypt for $DOMAIN.
+# Routes /api, /swagger, /health to the API; everything else to the SPA.
+{$DOMAIN} {
+    encode gzip zstd
+
+    @api path /api/* /swagger /swagger/* /health
+    handle @api {
+        reverse_proxy api:8080
+    }
+
+    handle {
+        reverse_proxy frontend:80
+    }
+}

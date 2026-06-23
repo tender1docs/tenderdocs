@@ -1,0 +1,31 @@
+# Secrets — never commit real environment files
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+!**/.env.production.example
+
+# .NET
+bin/
+obj/
+*.user
+
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Storage / data
+TenderDocs-Backend/storage/
+*.log
+
+# OS / editor
+.DS_Store
+.vs/
+.idea/
+
+# Local agent / editor tooling (not part of the app)
+.claude/
+
+.fake

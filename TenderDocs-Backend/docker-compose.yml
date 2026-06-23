@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tenderdocs-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tenderdocs}
+      POSTGRES_USER: ${POSTGRES_USER:-tenderdocs}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenderdocs}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tenderdocs} -d ${POSTGRES_DB:-tenderdocs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tenderdocs-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-tenderdocs};Username=${POSTGRES_USER:-tenderdocs};Password=${POSTGRES_PASSWORD:-tenderdocs}"
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER:-TenderDocs}
+      Jwt__Audience: ${JWT_AUDIENCE:-TenderDocsClient}
+      Encryption__Key: ${ENCRYPTION_KEY}
+      Storage__Local__RootPath: /app/storage
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Google__RedirectUri: ${GOOGLE_REDIRECT_URI:-}
+      Google__DriveFolderId: ${GOOGLE_DRIVE_FOLDER_ID:-}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-}
+      Swagger__Enabled: ${SWAGGER_ENABLED:-true}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+    volumes:
+      - storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  # The frontend already exists in this repo. Point `context` at its folder.
+  # It must produce a container that serves the built SPA on port 80.
+  frontend:
+    build:
+      context: ${FRONTEND_CONTEXT:-../TenderDocs-Frontend/frontend}
+    container_name: tenderdocs-frontend
+    environment:
+      # The SPA should call the API through the nginx gateway at /api
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tenderdocs-nginx
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:

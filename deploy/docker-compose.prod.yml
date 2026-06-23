@@ -1,0 +1,75 @@
+# ---------------------------------------------------------------------------
+# TenderDocs — PRODUCTION compose.
+# Uses prebuilt images from GHCR (published by CI) and Caddy for automatic HTTPS.
+#
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Requires a .env file in this directory (see .env.production.example) and DNS
+# for $DOMAIN pointing at this host with ports 80 + 443 open.
+# ---------------------------------------------------------------------------
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/${GHCR_REPO}-backend:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Swagger__Enabled: ${SWAGGER_ENABLED:-false}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER:-TenderDocs}
+      Jwt__Audience: ${JWT_AUDIENCE:-TenderDocsClient}
+      Encryption__Key: ${ENCRYPTION_KEY}
+      Cors__AllowedOrigins__0: ${PUBLIC_URL}
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Google__RedirectUri: ${GOOGLE_REDIRECT_URI:-}
+      Google__DriveFolderId: ${GOOGLE_DRIVE_FOLDER_ID:-}
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GHCR_REPO}-frontend:latest
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  storage:
+  caddy_data:
+  caddy_config:

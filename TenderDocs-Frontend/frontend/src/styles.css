@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-canvas text-ink antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  @apply bg-[#0B0F12] text-slate-100;
+}
+
+/* Quiet, slim scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d6dade transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: #d6dade; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: #b9bfc6; background-clip: padding-box; }
+.dark *::-webkit-scrollbar-thumb { background: #2a3138; background-clip: padding-box; }
+
+:focus-visible {
+  outline: 2px solid #0F766E;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* Surface helpers tuned to the screenshots */
+.surface { @apply bg-white border border-line rounded-2xl shadow-card; }
+.dark .surface { @apply bg-[#12181D] border-[#1F262C]; }
