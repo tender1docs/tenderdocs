@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TenderDocs.Api.Authorization;
 using TenderDocs.Application.Features.GoogleDrive;
+using TenderDocs.Domain.Authorization;
 
 namespace TenderDocs.Api.Controllers;
 
@@ -20,7 +22,7 @@ public class GoogleDriveController : ApiControllerBase
     /// Returns the Google consent URL to begin connecting Drive. The browser should navigate to it;
     /// Google redirects back to <c>/api/google-drive/callback</c> to finish the connection. Admin only.
     /// </summary>
-    [Authorize(Roles = "Approver")]
+    [HasPermission(Permissions.Storage.Manage)]
     [HttpGet("authorize")]
     public async Task<IActionResult> Authorize(CancellationToken ct)
     {
@@ -57,14 +59,14 @@ public class GoogleDriveController : ApiControllerBase
     /// Manually connect Google Drive with pre-obtained tokens (advanced / programmatic use).
     /// Most callers should use the <c>authorize</c> + <c>callback</c> flow instead. Admin only.
     /// </summary>
-    [Authorize(Roles = "Approver")]
+    [HasPermission(Permissions.Storage.Manage)]
     [HttpPost("connect")]
     public async Task<ActionResult<StorageStatusDto>> Connect(ConnectRequest req, CancellationToken ct)
         => Ok(await Mediator.Send(new ConnectGoogleDriveCommand(
             req.ClientId, req.ClientSecret, req.RedirectUri, req.FolderId,
             req.AccessToken, req.RefreshToken), ct));
 
-    [Authorize(Roles = "Approver")]
+    [HasPermission(Permissions.Storage.Manage)]
     [HttpPost("disconnect")]
     public async Task<IActionResult> Disconnect(CancellationToken ct)
     {

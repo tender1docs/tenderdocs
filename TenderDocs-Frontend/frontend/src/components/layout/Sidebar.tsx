@@ -3,32 +3,33 @@ import {
   LayoutDashboard,
   FileText,
   FolderKanban,
-  Bell,
-  Users,
   Settings,
-  Slash,
+  ShieldCheck,
+  type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
-import { useNotifications } from "@/hooks";
 import { useAuth } from "@/auth/AuthProvider";
-import { pagesFor } from "@/lib/access";
+import { can, Permission } from "@/lib/access";
 
-const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+interface NavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  permission?: string; // when set, the item shows only if the user holds this permission
+}
+
+const nav: NavItem[] = [
+  { to: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/projects", label: "Projects", icon: FolderKanban },
-  // { to: "/notifications", label: "Notifications", icon: Bell },
-  // { to: '/team', label: 'Team', icon: Users },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/admin", label: "Administration", icon: ShieldCheck, permission: Permission.AdminAccess },
 ];
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { data: notifications } = useNotifications();
-  const unread = notifications?.filter((n) => !n.read).length ?? 0;
-  const { role } = useAuth();
-  const allowed = role ? pagesFor(role) : [];
-  const visibleNav = nav.filter((item) => allowed.includes(item.to));
+  const { permissions } = useAuth();
+  const visibleNav = nav.filter((item) => !item.permission || can(permissions, item.permission));
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-line bg-white dark:border-[#1A2127] dark:bg-[#0E1317]">
@@ -62,28 +63,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   )}
                 />
                 <span className="flex-1">{label}</span>
-                {label === "Notifications" && unread > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-[11px] font-semibold text-white">
-                    {unread}
-                  </span>
-                )}
               </>
             )}
           </NavLink>
         ))}
       </nav>
-
-      <div className="p-3">
-        {/* <div className="rounded-2xl border border-line bg-slate-50/70 p-4 dark:border-[#1A2127] dark:bg-[#12181D]"> */}
-        {/* <div className="flex items-center gap-2 text-ink-soft dark:text-slate-200">
-            {/* <Slash className="h-4 w-4 -rotate-12 text-ink-muted" /> */}
-        {/* <span className="text-sm font-semibold">Demo Mode</span> */}
-        {/* </div> */}
-        {/* <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">
-            Files stored locally. Connect Google Drive in Settings.
-          </p> */}
-        {/* </div> */}
-      </div>
     </aside>
   );
 }

@@ -9,6 +9,9 @@ export const ProjectsApi = {
   create: (name: string, description?: string, requirements?: string[]) =>
     api.post<ProjectDto>('/projects', { name, description, requirements }),
 
+  update: (id: string, input: { name?: string; description?: string }) =>
+    api.put<ProjectDto>(`/projects/${id}`, input),
+
   remove: (id: string) => api.del<void>(`/projects/${id}`),
 
   addDocument: (projectId: string, documentId: string, requirementId?: string) =>

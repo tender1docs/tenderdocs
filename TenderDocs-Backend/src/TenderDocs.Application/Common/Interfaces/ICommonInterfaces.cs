@@ -1,4 +1,5 @@
 using TenderDocs.Domain.Entities;
+using TenderDocs.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace TenderDocs.Application.Common.Interfaces;
@@ -21,6 +22,9 @@ public interface IAppDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<StorageConnection> StorageConnections { get; }
+    DbSet<Permission> Permissions { get; }
+    DbSet<RolePermission> RolePermissions { get; }
+    DbSet<UserProject> UserProjects { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }
 
@@ -89,4 +93,16 @@ public record GoogleUserInfo(string GoogleId, string Email, string FullName, str
 public interface IEmailSender
 {
     Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Writes an entry to the audit trail (audit_logs). Organization/user default to the current
+/// authenticated request when not supplied — pass them explicitly for actions that happen before
+/// authentication (e.g. login).
+/// </summary>
+public interface IAuditLogger
+{
+    Task LogAsync(AuditAction action, string entityType, Guid? entityId = null,
+        object? details = null, Guid? organizationId = null, Guid? userId = null,
+        string? ipAddress = null, CancellationToken ct = default);
 }

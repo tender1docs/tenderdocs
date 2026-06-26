@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Menu, Search, Upload as UploadIcon, LogOut, RefreshCw } from 'lucide-react';
+import { Menu, Search, Upload as UploadIcon, LogOut } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Avatar, Button, IconButton } from '@/components/ui';
 import { useMe } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { can } from '@/lib/access';
+import { can, Permission } from '@/lib/access';
 
-const ROLE_LABEL: Record<string, string> = { approver: 'Approver', uploader: 'Uploader', viewer: 'Viewer' };
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin', approver: 'Approver', uploader: 'Uploader', viewer: 'Viewer',
+};
 
 function UserMenu() {
   const { data: me } = useMe();
-  const { logout, switchRole, role } = useAuth();
+  const { logout, role } = useAuth();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -34,10 +36,6 @@ function UserMenu() {
                   )}
                 </div>
               )}
-              <button onClick={() => { setOpen(false); switchRole(); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-[#161D23]">
-                <RefreshCw className="h-4 w-4" /> Switch role
-              </button>
               <button onClick={() => { setOpen(false); logout(); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-[#161D23]">
                 <LogOut className="h-4 w-4" /> Sign out
@@ -53,18 +51,17 @@ function UserMenu() {
 export function Topbar({ onMenu, onSearch, onUpload }: {
   onMenu: () => void; onSearch: () => void; onUpload: () => void;
 }) {
-  const { role } = useAuth();
-  const canUpload = !!role && can(role, 'upload');
+  const { permissions } = useAuth();
+  const canUpload = can(permissions, Permission.DocumentsUpload);
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-line bg-canvas/80 px-4 backdrop-blur dark:border-[#1A2127] dark:bg-[#0B0F12]/80 lg:px-8">
       <IconButton className="lg:hidden" onClick={onMenu} aria-label="Open menu"><Menu className="h-5 w-5" /></IconButton>
 
       <button
         onClick={onSearch}
-        className="hidden h-10 max-w-md flex-1 items-center gap-2.5 rounded-xl border border-line bg-white px-3.5 text-sm text-ink-faint transition-colors hover:border-brand-200 dark:border-[#222A31] dark:bg-[#12181D] sm:flex">
-        <Search className="h-4 w-4" />
+        className="hidden h-10 max-w-md flex-1 items-center gap-2.5 rounded-xl border border-line bg-white px-3.5 text-sm text-ink-faint transition-colors hover:border-brand-300 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-[#222A31] dark:bg-[#12181D] dark:focus:ring-brand-900/40 sm:flex">
+        <Search className="h-4 w-4 text-ink-muted" />
         <span className="flex-1 text-left">Search everything…</span>
-        <kbd className="rounded-md border border-line px-1.5 py-0.5 text-[11px] dark:border-[#222A31]">⌘K</kbd>
       </button>
 
       <div className="flex flex-1 items-center justify-end gap-3 sm:flex-none">

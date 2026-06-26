@@ -68,7 +68,7 @@ export default function LoginPage() {
             </div>
 
             <p className="mt-6 text-center text-xs text-ink-faint">
-              You’ll choose your role (Uploader, Approver or Viewer) right after signing in.
+              Access is managed by your administrator. Sign in with the Google account they added for you.
             </p>
           </div>
         </div>

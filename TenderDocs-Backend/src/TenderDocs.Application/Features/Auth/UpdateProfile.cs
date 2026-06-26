@@ -30,7 +30,6 @@ public class UpdateProfileHandler : IRequestHandler<UpdateProfileCommand, UserDt
         user.Initials = RegisterHandler.Initials(user.FullName);
         await _db.SaveChangesAsync(ct);
 
-        return new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-            user.OrganizationId, user.Organization.Name, user.Organization.DemoMode);
+        return UserDto.From(user, user.Organization.Name, user.Organization.DemoMode);
     }
 }

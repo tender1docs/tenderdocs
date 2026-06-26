@@ -21,8 +21,9 @@ public class ConnectGoogleDriveHandler : IRequestHandler<ConnectGoogleDriveComma
     private readonly ICurrentUser _current;
     private readonly ISecretProtector _protector;
     private readonly IDateTime _clock;
-    public ConnectGoogleDriveHandler(IAppDbContext db, ICurrentUser current, ISecretProtector protector, IDateTime clock)
-        => (_db, _current, _protector, _clock) = (db, current, protector, clock);
+    private readonly IAuditLogger _audit;
+    public ConnectGoogleDriveHandler(IAppDbContext db, ICurrentUser current, ISecretProtector protector, IDateTime clock, IAuditLogger audit)
+        => (_db, _current, _protector, _clock, _audit) = (db, current, protector, clock, audit);
 
     public async Task<StorageStatusDto> Handle(ConnectGoogleDriveCommand r, CancellationToken ct)
     {
@@ -49,6 +50,7 @@ public class ConnectGoogleDriveHandler : IRequestHandler<ConnectGoogleDriveComma
         org.DemoMode = false;
         await _db.SaveChangesAsync(ct);
 
+        await _audit.LogAsync(AuditAction.Update, "Storage", null, new { provider = "GoogleDrive", action = "connected" }, ct: ct);
         return new StorageStatusDto("GoogleDrive", true, r.FolderId);
     }
 }
@@ -89,7 +91,9 @@ public class DisconnectGoogleDriveHandler : IRequestHandler<DisconnectGoogleDriv
 {
     private readonly IAppDbContext _db;
     private readonly ICurrentUser _current;
-    public DisconnectGoogleDriveHandler(IAppDbContext db, ICurrentUser current) => (_db, _current) = (db, current);
+    private readonly IAuditLogger _audit;
+    public DisconnectGoogleDriveHandler(IAppDbContext db, ICurrentUser current, IAuditLogger audit)
+        => (_db, _current, _audit) = (db, current, audit);
 
     public async Task Handle(DisconnectGoogleDriveCommand r, CancellationToken ct)
     {
@@ -99,5 +103,7 @@ public class DisconnectGoogleDriveHandler : IRequestHandler<DisconnectGoogleDriv
             .ToListAsync(ct);
         foreach (var c in conns) c.IsActive = false;
         await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(AuditAction.Update, "Storage", null, new { provider = "GoogleDrive", action = "disconnected" }, ct: ct);
     }
 }

@@ -12,9 +12,13 @@ COPY package*.json ./
 RUN npm ci
 
 # Build the app. The SPA calls the API at VITE_API_BASE_URL (default /api, same-origin).
+# VITE_GOOGLE_CLIENT_ID is baked into the bundle at build time so the "Sign in with Google"
+# button works — without it the login screen shows "Google sign-in isn't configured".
 COPY . .
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_GOOGLE_CLIENT_ID=VITE_GOOGLE_CLIENT_ID 
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npm run build
 
 # ---- Runtime stage ----

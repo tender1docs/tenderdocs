@@ -171,6 +171,10 @@ export const projectService: IProjectService = {
     const dto = await ProjectsApi.create(input.name, input.description);
     return { id: dto.id, name: dto.name, description: dto.description ?? '', documentIds: [], createdAt: dto.createdAt };
   },
+  async update(input) {
+    const dto = await ProjectsApi.update(input.id, { name: input.name, description: input.description });
+    return { id: dto.id, name: dto.name, description: dto.description ?? '', documentIds: [], createdAt: dto.createdAt };
+  },
   async remove(id) {
     await ProjectsApi.remove(id);
   },

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TenderDocs.Application.Common.Interfaces;
+using TenderDocs.Application.Features.Admin;
 
 namespace TenderDocs.Application.Features.Projects;
 
@@ -23,8 +24,11 @@ public class ListProjectSummariesHandler
     public ListProjectSummariesHandler(IAppDbContext db, ICurrentUser current) => (_db, _current) = (db, current);
 
     public async Task<IReadOnlyList<ProjectSummaryDto>> Handle(ListProjectSummariesQuery q, CancellationToken ct)
-        => await _db.Projects
-            .Where(p => p.OrganizationId == _current.OrganizationId && !p.IsDeleted)
+    {
+        var isAdmin = ProjectAccessScope.IsAdmin(_current);
+        return await _db.Projects
+            .Where(p => p.OrganizationId == _current.OrganizationId && !p.IsDeleted
+                && (isAdmin || _db.UserProjects.Any(up => up.ProjectId == p.Id && up.UserId == _current.UserId)))
             .OrderByDescending(p => p.CreatedAt)
             .Select(p => new ProjectSummaryDto(
                 p.Id, p.Name, p.Description, p.CreatedAt, p.CreatedById,
@@ -33,4 +37,5 @@ public class ListProjectSummariesHandler
                     .Select(a => a.DocumentId)
                     .ToList()))
             .ToListAsync(ct);
+    }
 }

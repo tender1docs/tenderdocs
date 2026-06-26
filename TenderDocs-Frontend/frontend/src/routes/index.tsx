@@ -12,6 +12,16 @@ const OrganizePage = lazy(() => import('@/pages/OrganizePage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const TeamPage = lazy(() => import('@/pages/TeamPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
+const AdminLayout = lazy(() => import('@/pages/admin/AdminLayout'));
+const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage'));
+const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage'));
+const AdminRolesPage = lazy(() => import('@/pages/admin/AdminRolesPage'));
+const AdminProjectAccessPage = lazy(() => import('@/pages/admin/AdminProjectAccessPage'));
+const AdminStoragePage = lazy(() => import('@/pages/admin/AdminStoragePage'));
+const AdminAuditLogsPage = lazy(() => import('@/pages/admin/AdminAuditLogsPage'));
+const AdminApprovalQueuePage = lazy(() => import('@/pages/admin/AdminApprovalQueuePage'));
+const AdminNotificationsPage = lazy(() => import('@/pages/admin/AdminNotificationsPage'));
+const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage'));
 
 function PageFallback() {
   return (
@@ -42,6 +52,21 @@ export const router = createBrowserRouter([
       { path: 'notifications', element: page(<NotificationsPage />) },
       { path: 'team', element: page(<TeamPage />) },
       { path: 'settings', element: page(<SettingsPage />) },
+      {
+        path: 'admin',
+        element: page(<AdminLayout />),
+        children: [
+          { index: true, element: page(<AdminDashboardPage />) },
+          { path: 'users', element: page(<AdminUsersPage />) },
+          { path: 'roles', element: page(<AdminRolesPage />) },
+          { path: 'access', element: page(<AdminProjectAccessPage />) },
+          { path: 'storage', element: page(<AdminStoragePage />) },
+          { path: 'audit', element: page(<AdminAuditLogsPage />) },
+          { path: 'approvals', element: page(<AdminApprovalQueuePage />) },
+          { path: 'notifications', element: page(<AdminNotificationsPage />) },
+          { path: 'reports', element: page(<AdminReportsPage />) },
+        ],
+      },
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],
   },

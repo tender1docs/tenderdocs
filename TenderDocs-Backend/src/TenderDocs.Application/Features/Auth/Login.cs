@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using TenderDocs.Application.Common.Exceptions;
 using TenderDocs.Application.Common.Interfaces;
 using TenderDocs.Domain.Entities;
+using TenderDocs.Domain.Enums;
 
 namespace TenderDocs.Application.Features.Auth;
 
@@ -24,9 +25,11 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResultDto>
     private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _jwt;
     private readonly IDateTime _clock;
+    private readonly IAuditLogger _audit;
 
-    public LoginHandler(IAppDbContext db, IPasswordHasher hasher, IJwtTokenService jwt, IDateTime clock)
-        => (_db, _hasher, _jwt, _clock) = (db, hasher, jwt, clock);
+    public LoginHandler(IAppDbContext db, IPasswordHasher hasher, IJwtTokenService jwt,
+        IDateTime clock, IAuditLogger audit)
+        => (_db, _hasher, _jwt, _clock, _audit) = (db, hasher, jwt, clock, audit);
 
     public async Task<AuthResultDto> Handle(LoginCommand r, CancellationToken ct)
     {
@@ -48,8 +51,10 @@ public class LoginHandler : IRequestHandler<LoginCommand, AuthResultDto>
         _db.RefreshTokens.Add(refresh);
         await _db.SaveChangesAsync(ct);
 
+        await _audit.LogAsync(AuditAction.Login, "User", user.Id, new { method = "password" },
+            user.OrganizationId, user.Id, r.Ip, ct);
+
         return new AuthResultDto(token, exp, refresh.Token,
-            new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-                user.OrganizationId, user.Organization.Name, user.Organization.DemoMode));
+            UserDto.From(user, user.Organization.Name, user.Organization.DemoMode));
     }
 }

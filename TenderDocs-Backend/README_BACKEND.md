@@ -61,12 +61,12 @@ In Docker, PostgreSQL runs as the `postgres` service with a persistent `pgdata` 
 setup is needed. The API composes its connection string from the `POSTGRES_*` variables:
 
 ```
-Host=postgres;Port=5432;Database=tenderdocs;Username=tenderdocs;Password=TenderDocs@2025
+Host=postgres;Port=5432;Database=tenderdocs;Username=tenderdocs;Password=<your POSTGRES_PASSWORD>
 ```
 
 Running the API outside Docker against a local PostgreSQL:
 ```bash
-export ConnectionStrings__Default="Host=localhost;Port=5432;Database=tenderdocs;Username=tenderdocs;Password=TenderDocs@2025"
+export ConnectionStrings__Default="Host=localhost;Port=5432;Database=tenderdocs;Username=tenderdocs;Password=<your POSTGRES_PASSWORD>"
 dotnet run --project src/TenderDocs.Api
 ```
 

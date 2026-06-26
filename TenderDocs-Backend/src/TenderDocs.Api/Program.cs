@@ -1,8 +1,13 @@
 using System.Reflection;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using TenderDocs.Api.Authorization;
 using TenderDocs.Api.Middleware;
 using TenderDocs.Application;
 using TenderDocs.Infrastructure;
@@ -19,6 +24,12 @@ builder.Host.UseSerilog((ctx, cfg) => cfg
 // ---- Application + Infrastructure ----
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// ---- Permission-based authorization ----
+// A dynamic policy provider materializes a policy for every [HasPermission("area.action")]
+// guard, and the handler resolves the caller's role → permissions via Domain RolePermissions.
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
 // ---- MVC ----
 builder.Services.AddControllers()
@@ -62,16 +73,45 @@ builder.Services.AddSwaggerGen(c =>
 var connectionString = builder.Configuration.GetConnectionString("Default")!;
 builder.Services.AddHealthChecks().AddNpgSql(connectionString, name: "postgres");
 
+// ---- Rate limiting (per client IP; stricter on auth to blunt brute-force) ----
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+    {
+        var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var isAuth = ctx.Request.Path.StartsWithSegments("/api/auth");
+        return RateLimitPartition.GetFixedWindowLimiter(
+            (isAuth ? "auth:" : "gen:") + ip,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = isAuth ? 20 : 300,   // auth: 20/min, everything else: 300/min
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            });
+    });
+});
+
+// Trust the reverse proxy (Caddy/nginx) so rate limiting + audit logs see the real client IP,
+// not the proxy's. Single-server Docker: trust the front proxy on the compose network.
+builder.Services.Configure<ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    o.KnownNetworks.Clear();
+    o.KnownProxies.Clear();
+});
+
 var app = builder.Build();
 
 // ---- Apply migrations on startup ----
 await ApplyMigrationsAsync(app);
 
-// ---- Seed demo data (no-op if users already exist), controlled by Seed:Enabled ----
+// ---- Seed permission catalog + bootstrap admin (idempotent), controlled by Seed:Enabled ----
 if (app.Configuration.GetValue("Seed:Enabled", true))
     await SeedDatabaseAsync(app);
 
 // ---- Pipeline ----
+app.UseForwardedHeaders();   // real client IP (behind the proxy) — first, so everything downstream sees it
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSerilogRequestLogging();
 
@@ -83,6 +123,7 @@ if (app.Environment.IsDevelopment() ||
 }
 
 app.UseCors("frontend");
+app.UseRateLimiter();   // after CORS so preflight isn't throttled; before auth so abuse is rejected early
 app.UseAuthentication();
 app.UseAuthorization();
 

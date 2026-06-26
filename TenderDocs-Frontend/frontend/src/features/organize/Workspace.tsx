@@ -9,7 +9,7 @@ import { Button, Modal, StatusBadge, EmptyState, Skeleton } from '@/components/u
 import { UploadDialog } from '@/components/layout/UploadDialog';
 import { useToast, useDocuments, useOrganizeDetail } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { can } from '@/lib/access';
+import { can, Permission } from '@/lib/access';
 import { useDocumentDrawer } from '@/features/documents/DocumentDrawer';
 import { apiClients, saveBlob } from '@/services';
 import type { ProjectDetailDto, ProjectRequirementDto } from '@/services/api';
@@ -117,9 +117,9 @@ function CategorySection({
 export function OrganizeWorkspace({ projectId, onBack }: { projectId: string; onBack?: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const { role } = useAuth();
-  const canEdit = !!role && can(role, 'organizeEdit');   // approver only; viewers are read-only
-  const canManage = !!role && can(role, 'manageProject'); // add documents to the project
+  const { permissions } = useAuth();
+  const canEdit = can(permissions, Permission.OrganizeEdit);    // uploader/admin; others are read-only
+  const canManage = can(permissions, Permission.ProjectsAssign); // add documents to the project
   const { open: openDrawer } = useDocumentDrawer();
   const { data: detail, isLoading } = useOrganizeDetail(projectId);
   const { data: allDocs = [] } = useDocuments();

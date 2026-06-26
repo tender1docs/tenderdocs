@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Search, LayoutGrid, List, Plus, FolderTree as FolderTreeIcon, FileText } from 'lucide-react';
 import { Button, Input, EmptyState } from '@/components/ui';
+import { useConfirm } from '@/components/ui/confirm';
 import { DocumentCard, DocumentRow } from '@/features/documents/DocumentCard';
 import { FiltersPanel, emptyFilters, type DocFilters } from '@/features/documents/Filters';
 import { CategoryFolders } from '@/features/documents/CategoryFolders';
 import { UploadDialog } from '@/components/layout/UploadDialog';
 import { useDocuments, useProjects, useDeleteDocument, useToast } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { can } from '@/lib/access';
+import { can, Permission } from '@/lib/access';
 import type { ApprovalStatus } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -24,9 +25,10 @@ export default function DocumentsPage() {
   const { data: projects = [] } = useProjects();
   const del = useDeleteDocument();
   const { push } = useToast();
-  const { role } = useAuth();
-  const canUpload = !!role && can(role, 'upload');
-  const canDelete = !!role && can(role, 'deleteDoc');
+  const confirm = useConfirm();
+  const { permissions } = useAuth();
+  const canUpload = can(permissions, Permission.DocumentsUpload);
+  const canDelete = can(permissions, Permission.DocumentsDelete);
 
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'grid' | 'list'>('grid');
@@ -62,7 +64,15 @@ export default function DocumentsPage() {
     });
   }, [documents, query, filters, projects, approval]);
 
-  function onDelete(id: string, name: string) {
+  async function onDelete(id: string, name: string) {
+    const ok = await confirm({
+      title: 'Delete this document?',
+      message: `“${name}” will be permanently removed. This cannot be undone.`,
+      confirmText: 'Yes, delete',
+      cancelText: 'No',
+      tone: 'danger',
+    });
+    if (!ok) return;
     del.mutate(id, { onSuccess: () => push({ title: `${name} deleted`, tone: 'danger' }) });
   }
 

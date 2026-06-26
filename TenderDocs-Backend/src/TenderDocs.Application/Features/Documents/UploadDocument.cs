@@ -39,10 +39,11 @@ public class UploadDocumentHandler : IRequestHandler<UploadDocumentCommand, Docu
     private readonly IStorageProviderFactory _storageFactory;
     private readonly IDateTime _clock;
     private readonly IDocumentCompressor _compressor;
+    private readonly IAuditLogger _audit;
 
     public UploadDocumentHandler(IAppDbContext db, ICurrentUser current,
-        IStorageProviderFactory storageFactory, IDateTime clock, IDocumentCompressor compressor)
-        => (_db, _current, _storageFactory, _clock, _compressor) = (db, current, storageFactory, clock, compressor);
+        IStorageProviderFactory storageFactory, IDateTime clock, IDocumentCompressor compressor, IAuditLogger audit)
+        => (_db, _current, _storageFactory, _clock, _compressor, _audit) = (db, current, storageFactory, clock, compressor, audit);
 
     public async Task<DocumentDto> Handle(UploadDocumentCommand r, CancellationToken ct)
     {
@@ -91,6 +92,9 @@ public class UploadDocumentHandler : IRequestHandler<UploadDocumentCommand, Docu
             });
 
         await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(AuditAction.Upload, "Document", doc.Id,
+            new { doc.Name, type = doc.DocumentType.ToString() }, ct: ct);
 
         var saved = await _db.Documents.Include(d => d.UploadedBy)
             .Include(d => d.DocumentTags).ThenInclude(t => t.Tag)

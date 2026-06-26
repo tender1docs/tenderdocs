@@ -1,12 +1,18 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using TenderDocs.Application.Common.Exceptions;
 using TenderDocs.Application.Common.Interfaces;
 using TenderDocs.Domain.Entities;
 using TenderDocs.Domain.Enums;
 
 namespace TenderDocs.Application.Features.Auth;
 
-/// <summary>Google OAuth login/signup. Accepts either an auth code (web flow) or an id_token.</summary>
+/// <summary>
+/// Google OAuth sign-in for a provisioned user. Accepts either an auth code (web flow) or an id_token.
+/// Access is controlled: only an existing, active account (matched by email or Google id) may sign in —
+/// there is no self-registration and no auto-Viewer fallback. An administrator provisions users first
+/// (Administration → Users); the user's stored role determines their permissions.
+/// </summary>
 public record GoogleLoginCommand(string? Code, string? IdToken, string? RedirectUri, string? Ip)
     : IRequest<AuthResultDto>;
 
@@ -16,9 +22,11 @@ public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, AuthResult
     private readonly IGoogleOAuthService _google;
     private readonly IJwtTokenService _jwt;
     private readonly IDateTime _clock;
+    private readonly IAuditLogger _audit;
 
-    public GoogleLoginHandler(IAppDbContext db, IGoogleOAuthService google, IJwtTokenService jwt, IDateTime clock)
-        => (_db, _google, _jwt, _clock) = (db, google, jwt, clock);
+    public GoogleLoginHandler(IAppDbContext db, IGoogleOAuthService google, IJwtTokenService jwt,
+        IDateTime clock, IAuditLogger audit)
+        => (_db, _google, _jwt, _clock, _audit) = (db, google, jwt, clock, audit);
 
     public async Task<AuthResultDto> Handle(GoogleLoginCommand r, CancellationToken ct)
     {
@@ -30,29 +38,15 @@ public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, AuthResult
         var user = await _db.Users.Include(u => u.Organization)
             .FirstOrDefaultAsync(u => u.Email == email || u.GoogleId == info.GoogleId, ct);
 
+        // Controlled access — no provisioned account means no entry (no self-registration / auto-Viewer).
         if (user is null)
-        {
-            var org = new Organization
-            {
-                Name = $"{info.FullName}'s Workspace", Slug = Guid.NewGuid().ToString("N")[..10],
-                DemoMode = true, CreatedAt = _clock.UtcNow
-            };
-            _db.Organizations.Add(org);
-            user = new User
-            {
-                OrganizationId = org.Id, Email = email, GoogleId = info.GoogleId,
-                FullName = info.FullName, Initials = RegisterHandler.Initials(info.FullName),
-                // New Google users start as Viewer; they pick their role right after sign-in.
-                Role = UserRole.Viewer, CreatedAt = _clock.UtcNow
-            };
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync(ct);
-            user.Organization = org;
-        }
-        else if (user.GoogleId is null)
-        {
-            user.GoogleId = info.GoogleId; // link existing email account
-        }
+            throw new ForbiddenAccessException(
+                "This Google account isn't authorized. Ask your administrator to add you.");
+        if (!user.IsActive)
+            throw new ForbiddenAccessException("This account is disabled. Contact your administrator.");
+
+        if (user.GoogleId is null)
+            user.GoogleId = info.GoogleId;   // link the Google identity to the pre-provisioned account
 
         user.LastLoginAt = _clock.UtcNow;
         var (token, exp) = _jwt.CreateAccessToken(user);
@@ -64,8 +58,10 @@ public class GoogleLoginHandler : IRequestHandler<GoogleLoginCommand, AuthResult
         _db.RefreshTokens.Add(refresh);
         await _db.SaveChangesAsync(ct);
 
+        await _audit.LogAsync(AuditAction.Login, "User", user.Id, new { method = "google" },
+            user.OrganizationId, user.Id, r.Ip, ct);
+
         return new AuthResultDto(token, exp, refresh.Token,
-            new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-                user.OrganizationId, user.Organization.Name, user.Organization.DemoMode));
+            UserDto.From(user, user.Organization.Name, user.Organization.DemoMode));
     }
 }

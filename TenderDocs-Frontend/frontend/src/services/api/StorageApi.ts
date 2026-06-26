@@ -17,6 +17,15 @@ export const StorageApi = {
 
 export const UsersApi = {
   list: () => api.get<TeamMemberDto[]>('/users'),
-  create: (input: { email: string; fullName: string; password: string; role: 'Admin' | 'Manager' | 'Viewer' }) =>
-    api.post<TeamMemberDto>('/users', input),
+  create: (input: {
+    email: string; fullName: string; role: string;
+    password?: string; isActive?: boolean; projectIds?: string[];
+  }) => api.post<TeamMemberDto>('/users', input),
+  updateRole: (id: string, role: string) =>
+    api.put<TeamMemberDto>(`/users/${id}/role`, { role }),
+  setActive: (id: string, isActive: boolean) =>
+    api.put<TeamMemberDto>(`/users/${id}/active`, { isActive }),
+  resetPassword: (id: string, password: string) =>
+    api.post<void>(`/users/${id}/reset-password`, { password }),
+  remove: (id: string) => api.del<void>(`/users/${id}`),
 };

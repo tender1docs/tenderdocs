@@ -7,14 +7,14 @@ import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { UploadDialog } from '@/components/layout/UploadDialog';
 import { useMediaQuery } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { canVisit } from '@/lib/access';
+import { canVisitPath } from '@/lib/access';
 import { DocumentDrawerProvider } from '@/features/documents/DocumentDrawer';
 
-/** Redirects to the dashboard when the current role may not visit the requested page. */
+/** Redirects to the dashboard when the user lacks permission to visit the requested page. */
 function GuardedOutlet() {
-  const { role } = useAuth();
+  const { permissions } = useAuth();
   const { pathname } = useLocation();
-  if (role && !canVisit(role, pathname)) return <Navigate to="/dashboard" replace />;
+  if (!canVisitPath(permissions, pathname)) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }
 

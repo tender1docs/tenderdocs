@@ -5,10 +5,11 @@ export interface UserDto {
   email: string;
   fullName: string;
   initials: string;
-  role: string;            // Admin | Manager | Viewer
+  role: string;            // Admin | Approver | Uploader | Viewer
   organizationId: string;
   organizationName: string;
   demoMode: boolean;
+  permissions: string[];   // resolved permission keys for the signed-in user
 }
 
 export interface AuthResultDto {
@@ -128,7 +129,7 @@ export interface TeamMemberDto {
   id: string;
   fullName: string;
   email: string;
-  role: string;            // Admin | Manager | Viewer
+  role: string;            // Admin | Approver | Uploader | Viewer
   initials: string;
   isActive: boolean;
 }

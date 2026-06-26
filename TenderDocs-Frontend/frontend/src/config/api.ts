@@ -11,9 +11,6 @@
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || '/api';
 
-const DEMO_EMAIL = (import.meta.env.VITE_DEMO_EMAIL as string | undefined) || 'admin@tenderdocs.io';
-const DEMO_PASSWORD = (import.meta.env.VITE_DEMO_PASSWORD as string | undefined) || 'Admin@12345';
-
 const ACCESS_KEY = 'td_access_token';
 const REFRESH_KEY = 'td_refresh_token';
 const PERSIST_KEY = 'td_remember';
@@ -126,23 +123,12 @@ export async function loginWithPassword(email: string, password: string, remembe
   writeTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken }, remember);
 }
 
-/** Create a new workspace + admin user, then sign in. */
-export async function registerAccount(
-  email: string, password: string, fullName: string, organizationName?: string, remember = true,
-): Promise<void> {
-  const res = await rawFetch('/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, fullName, organizationName }),
-  });
-  if (!res.ok) throw await parseError(res);
-  const result = (await res.json()) as AuthResult;
-  writeTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken }, remember);
-}
+export interface SessionUser { role?: string; permissions?: string[] }
 
-/** Sign in with a Google id_token (from Google Identity Services). Creates the account on first use.
- *  Returns the user's current role string ("Approver" | "Uploader" | "Viewer"). */
-export async function loginWithGoogleIdToken(idToken: string, remember = true): Promise<string | undefined> {
+/** Sign in with a Google id_token (from Google Identity Services). Access is controlled: only a
+ *  provisioned, active account may sign in — an unknown account is rejected by the API (403).
+ *  Returns the user's role + resolved permission keys. */
+export async function loginWithGoogleIdToken(idToken: string, remember = true): Promise<SessionUser> {
   const res = await rawFetch('/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -151,28 +137,12 @@ export async function loginWithGoogleIdToken(idToken: string, remember = true): 
   if (!res.ok) throw await parseError(res);
   const result = (await res.json()) as AuthResult;
   writeTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken }, remember);
-  return (result.user as { role?: string } | undefined)?.role;
-}
-
-/** Self-assign an access role (demo). Stores the refreshed tokens and returns the new role string. */
-export async function selectRoleRequest(role: string): Promise<string | undefined> {
-  const res = await authedFetch('/auth/role', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role }),
-  });
-  if (!res.ok) throw await parseError(res);
-  const result = (await res.json()) as AuthResult;
-  writeTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken }, rememberPref());
-  return (result.user as { role?: string } | undefined)?.role;
+  return (result.user as SessionUser | undefined) ?? {};
 }
 
 export function isAuthenticated(): boolean {
   return !!(memoryTokens ?? readTokens());
 }
-
-/** Default demo credentials, surfaced to the login screen for one-click sign-in. */
-export const DEMO_CREDENTIALS = { email: DEMO_EMAIL, password: DEMO_PASSWORD };
 
 async function refreshTokens(): Promise<Tokens | null> {
   const current = memoryTokens ?? readTokens();

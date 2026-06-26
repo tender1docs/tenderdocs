@@ -1,10 +1,13 @@
 namespace TenderDocs.Domain.Enums;
 
-// Access roles. Approver = full access (manage everything + approve/reject documents),
-// Uploader = can upload/add documents to projects, Viewer = read-only.
-// Int values kept stable with the prior Admin/Manager/Viewer ordering so existing rows map cleanly
-// (old Admin -> Approver, old Manager -> Uploader, old Viewer -> Viewer).
-public enum UserRole { Approver = 0, Uploader = 1, Viewer = 2 }
+// Access roles, resolved to permission sets by Domain.Authorization.RolePermissions.
+//   Admin    = the only unrestricted role (entire app + administration portal).
+//   Uploader = document work only (upload / edit / organize / assign to projects).
+//   Approver = approval only (review / approve / reject) — no upload, edit, or delete.
+//   Viewer   = read-only (view / search / download).
+// Approver/Uploader/Viewer keep their original int values; Admin is appended as 3 so existing
+// rows are unaffected. Roles are NOT checked directly — authorization is permission-based.
+public enum UserRole { Approver = 0, Uploader = 1, Viewer = 2, Admin = 3 }
 
 // Document review state, set by an Approver. New documents start Pending.
 public enum DocumentApprovalStatus { Pending = 0, Approved = 1, Rejected = 2 }

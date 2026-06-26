@@ -53,7 +53,7 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, AuthResultDto>
             PasswordHash = _hasher.Hash(r.Password),
             FullName = r.FullName.Trim(),
             Initials = Initials(r.FullName),
-            Role = UserRole.Approver,         // first user of a workspace gets full access
+            Role = UserRole.Admin,            // first user of a workspace is the Admin
             CreatedAt = _clock.UtcNow
         };
         _db.Users.Add(user);
@@ -68,8 +68,7 @@ public class RegisterHandler : IRequestHandler<RegisterCommand, AuthResultDto>
         await _db.SaveChangesAsync(ct);
 
         return new AuthResultDto(token, exp, refresh.Token,
-            new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-                org.Id, org.Name, org.DemoMode));
+            UserDto.From(user, org.Name, org.DemoMode));
     }
 
     internal static string Initials(string name)

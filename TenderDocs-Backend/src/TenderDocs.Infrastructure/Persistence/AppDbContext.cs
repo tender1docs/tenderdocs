@@ -23,6 +23,9 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<StorageConnection> StorageConnections => Set<StorageConnection>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserProject> UserProjects => Set<UserProject>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

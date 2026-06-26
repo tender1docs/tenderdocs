@@ -15,6 +15,7 @@ export interface IProjectService {
   list(): Promise<ProjectItem[]>;
   get(id: string): Promise<ProjectItem | undefined>;
   create(input: { name: string; description?: string }): Promise<ProjectItem>;
+  update(input: { id: string; name?: string; description?: string }): Promise<ProjectItem>;
   remove(id: string): Promise<void>;
   setDocuments(id: string, documentIds: string[]): Promise<ProjectItem>;
 }
@@ -74,6 +75,13 @@ export const projectService: IProjectService = {
     };
     projects = [p, ...projects];
     return clone(p);
+  },
+  async update(input) {
+    await latency(160);
+    projects = projects.map((p) => (p.id === input.id
+      ? { ...p, name: input.name ?? p.name, description: input.description ?? p.description }
+      : p));
+    return clone(projects.find((p) => p.id === input.id)!);
   },
   async remove(id) { await latency(); projects = projects.filter((p) => p.id !== id); },
   async setDocuments(id, documentIds) {

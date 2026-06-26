@@ -119,21 +119,13 @@ nano .env
 #   DOMAIN=tenderdocs.yourcompany.com
 #   PUBLIC_URL=https://tenderdocs.yourcompany.com
 #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI / GOOGLE_DRIVE_FOLDER_ID
-#       (leave Google blank to run on Local storage + email/password login)
+#   VITE_GOOGLE_CLIENT_ID   (same value as GOOGLE_CLIENT_ID — required; baked into the SPA build)
+#   SEED_ADMIN_EMAIL        (your real Google account — becomes the Admin on first boot)
 chmod 600 .env
 ```
 
-**(Optional) Google sign-in button** — the SPA needs the client id at build time. Create it on the server:
-```bash
-cat > ~/tenderdocs/TenderDocs-Frontend/frontend/.env <<'EOF'
-VITE_API_BASE_URL=/api
-VITE_GOOGLE_CLIENT_ID=YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com
-VITE_DEMO_EMAIL=
-VITE_DEMO_PASSWORD=
-EOF
-```
-Skip this file to keep the Google button hidden (email/password still works). Leaving the
-DEMO_* values empty ensures **no credentials are shown on the login page**.
+**Google sign-in is the only way to log in.** `VITE_GOOGLE_CLIENT_ID` in `.env` is passed into the
+frontend image automatically at build time — there is no separate frontend env file to create.
 
 In the **Google Cloud Console** OAuth client, add:
 - Authorized JavaScript origin: `https://tenderdocs.yourcompany.com`
@@ -158,21 +150,25 @@ Then open `https://tenderdocs.yourcompany.com` in a browser — valid padlock, a
 
 ---
 
-## Stage 7 — Create the real admin, then lock down (CRITICAL)
+## Stage 7 — First sign-in as the Admin (CRITICAL)
 
-`.env` ships with `SEED_ENABLED=true` so the **first** boot creates an admin.
+`.env` ships with `SEED_ENABLED=true` and `SEED_ADMIN_EMAIL`. The **first** boot, against an empty
+database, seeds the permission catalog and exactly **one** user — that email — as **Admin**. There
+are no passwords and no demo data; sign-in is Google-only, and unknown Google accounts are rejected.
 
-1. Log in with the seeded admin: `admin@tenderdocs.io` / `Admin@12345`.
-2. **Immediately**: change the admin email + password; delete the demo `reviewer@`, `viewer@`,
-   `ravi@` users; remove the sample demo documents/projects.
-3. Turn seeding off so it never recreates demo data:
-   ```bash
-   sed -i 's/^SEED_ENABLED=true/SEED_ENABLED=false/' .env
-   docker compose -f docker-compose.server.yml up -d   # recreates the api with new env
-   ```
-4. Confirm `admin@tenderdocs.io / Admin@12345` no longer works, and `/swagger` is unreachable.
+1. Confirm `SEED_ADMIN_EMAIL` in `.env` is the real Google account you'll administer with, and that
+   the OAuth client allows it (JavaScript origin set, and the email added under **Test users** unless
+   the app is published — see `PRE-DEPLOYMENT-CHECKLIST.md` §3).
+2. Open `https://tenderdocs.yourcompany.com` and **Sign in with Google** as that account → you land
+   as Admin and see the **Administration** section in the sidebar.
+3. Go to **Administration → Users** to create the rest of your team (Uploader / Approver / Viewer),
+   and **Administration → Project Access** to scope who sees which projects. Add each new user's email
+   to the Google OAuth **Test users** list too (or publish the app) so they can sign in.
 
-(Full list in `PRE-DEPLOYMENT-CHECKLIST.md` §4 + §9.)
+The seeder is idempotent — once a user exists it never recreates the admin, so you can leave
+`SEED_ENABLED=true`. `/swagger` is disabled in production (`SWAGGER_ENABLED=false`).
+
+(See `PRE-DEPLOYMENT-CHECKLIST.md` §3–§4 for the OAuth + access checklist.)
 
 ---
 
@@ -259,5 +255,6 @@ docker compose -f docker-compose.server.yml down               # stop all (data 
 | HTTPS not issued | DNS A record resolves to the server? Ports 80+443 open (`ufw status`)? `docker compose logs caddy` |
 | Upload 500 | `docker compose logs api` — if `invalid_client`, the Google secret is wrong (see PRE-DEPLOYMENT-CHECKLIST §3) |
 | Google button missing | `frontend/.env` `VITE_GOOGLE_CLIENT_ID` set before build? (Stage 5) |
-| Login shows demo creds | clear `VITE_DEMO_EMAIL/PASSWORD` and rebuild the frontend |
+| Google button missing on login | set `VITE_GOOGLE_CLIENT_ID` in `.env` (= `GOOGLE_CLIENT_ID`), then `up -d --build` |
+| "This account isn't authorized" | the email isn't a provisioned user — add it in Administration → Users (and Google Test users) |
 | Actions deploy fails | secret `VPS_SSH_KEY` is the **private** key; `VPS_APP_DIR` correct; `DEPLOY_ENABLED=true` |

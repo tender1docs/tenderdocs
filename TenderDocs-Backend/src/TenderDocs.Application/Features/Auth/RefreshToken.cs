@@ -41,7 +41,6 @@ public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, AuthResu
         await _db.SaveChangesAsync(ct);
 
         return new AuthResultDto(token, exp, newRefresh.Token,
-            new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-                user.OrganizationId, user.Organization.Name, user.Organization.DemoMode));
+            UserDto.From(user, user.Organization.Name, user.Organization.DemoMode));
     }
 }

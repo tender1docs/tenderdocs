@@ -57,10 +57,11 @@ services:
   frontend:
     build:
       context: ${FRONTEND_CONTEXT:-../TenderDocs-Frontend/frontend}
+      args:
+        # VITE_* values are baked into the SPA at BUILD time (a static bundle has no runtime env).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     container_name: tenderdocs-frontend
-    environment:
-      # The SPA should call the API through the nginx gateway at /api
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     depends_on:
       - api
     restart: unless-stopped

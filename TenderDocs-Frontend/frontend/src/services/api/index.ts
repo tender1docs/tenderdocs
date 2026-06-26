@@ -6,4 +6,6 @@ export { OrganizeApi } from './OrganizeApi';
 export { NotificationsApi } from './NotificationsApi';
 export { StorageApi, UsersApi } from './StorageApi';
 export { SearchApi } from './SearchApi';
+export { AdminApi } from './AdminApi';
+export type * from './AdminApi';
 export type * from './dtos';

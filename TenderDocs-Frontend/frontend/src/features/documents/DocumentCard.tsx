@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Badge, StatusBadge, ApprovalBadge, Modal, Button, EmptyState } from '@/components/ui';
 import { useToast, useProjects } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { can } from '@/lib/access';
+import { can, Permission } from '@/lib/access';
 import { apiClients, saveBlob } from '@/services';
 import { fmtDayMonth } from '@/lib/utils';
 import { useDocumentDrawer } from '@/features/documents/DocumentDrawer';
@@ -101,11 +101,11 @@ function Menu({ doc, onDelete, onView, onAdd }: { doc: DocumentItem; onDelete?: 
 
 export function DocumentCard({ doc, onDelete }: { doc: DocumentItem; onDelete?: () => void }) {
   const { open } = useDocumentDrawer();
-  const { role } = useAuth();
-  const canAdd = !!role && can(role, 'manageProject');
+  const { permissions } = useAuth();
+  const canAdd = can(permissions, Permission.ProjectsAssign);
   const [addOpen, setAddOpen] = useState(false);
   const projectCount = useProjectCount(doc.id);
-  const userTags = (doc.tags ?? []).filter((t) => !t.startsWith('ref:') && !t.startsWith('cat:'));
+  const userTags = (doc.tags ?? []).filter((t) => !t.startsWith('ref:') && !t.startsWith('cat:') && !t.startsWith('desc:'));
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }}
@@ -149,8 +149,8 @@ export function DocumentCard({ doc, onDelete }: { doc: DocumentItem; onDelete?: 
 
 export function DocumentRow({ doc, onDelete }: { doc: DocumentItem; onDelete?: () => void }) {
   const { open } = useDocumentDrawer();
-  const { role } = useAuth();
-  const canAdd = !!role && can(role, 'manageProject');
+  const { permissions } = useAuth();
+  const canAdd = can(permissions, Permission.ProjectsAssign);
   const [addOpen, setAddOpen] = useState(false);
   const projectCount = useProjectCount(doc.id);
 

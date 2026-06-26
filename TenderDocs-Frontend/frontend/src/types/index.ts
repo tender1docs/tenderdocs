@@ -1,14 +1,19 @@
 export type ExpiryStatus = 'valid' | 'expiring' | 'expired' | 'none';
 
-/** Access roles. approver = full access + approvals, uploader = upload/add, viewer = read-only. */
-export type Role = 'approver' | 'uploader' | 'viewer';
+/**
+ * Access roles. admin = full access (the only superuser), approver = approval only,
+ * uploader = document work only, viewer = read-only. Roles map to permission sets on the backend;
+ * the frontend gates UI from the resolved permission list (see lib/access.ts).
+ */
+export type Role = 'admin' | 'approver' | 'uploader' | 'viewer';
 
 /** Document review state set by an approver. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
-/** Map a backend role string ("Approver" | "Uploader" | "Viewer") to the frontend Role. */
+/** Map a backend role string ("Admin" | "Approver" | "Uploader" | "Viewer") to the frontend Role. */
 export function normalizeRole(role?: string | null): Role {
   switch ((role ?? '').toLowerCase()) {
+    case 'admin': return 'admin';
     case 'approver': return 'approver';
     case 'uploader': return 'uploader';
     default: return 'viewer';

@@ -38,29 +38,35 @@ http://localhost:8080/swagger → Swagger UI
 Single origin means **no CORS** in normal use and the SPA simply calls `/api`.
 
 ### Frontend
+
 React 18 + TypeScript + Vite + Tailwind + React Query. Screens consume `I*Service` contracts
 through React Query hooks. Typed API clients (`src/services/api`) call the backend and
 `src/services/live.ts` maps backend DTOs to the frontend's view types — so the UI runs on real
-data with no component rewrites. The app auto-authenticates against the seeded admin (no login
-screen). See `TenderDocs-Frontend/frontend/README_FRONTEND.md`.
+data with no component rewrites. Users sign in with Google; the UI is gated by a permission layer
+(`src/lib/access.ts`) sourced from the API. See `TenderDocs-Frontend/frontend/README_FRONTEND.md`.
 
 ### Backend
+
 ASP.NET Core 8, Clean Architecture (Domain / Application / Infrastructure / Api), CQRS via
 MediatR, EF Core + PostgreSQL, JWT auth, Swagger. Endpoints cover auth, documents, projects,
-folders, organize, notifications, storage, search, and dashboard. Migrations apply and demo data
-seeds automatically on startup. See `TenderDocs-Backend/README_BACKEND.md`.
+folders, organize, notifications, storage, search, and dashboard. Authorization is permission-based
+(roles → permission sets, enforced with `[HasPermission]` policies). On startup, migrations apply and
+a permission catalog + a single Admin user are seeded — no demo data. See `TenderDocs-Backend/README_BACKEND.md`.
 
 ### Database
+
 PostgreSQL 16. Schema is created by EF Core migrations on API startup. Core entities: organizations,
 users, projects, folders (unlimited nesting via materialized path), documents, document↔project
 assignments, requirements, tags, notifications, storage connections, audit logs.
 
 ### Storage
+
 Provider-agnostic (`IStorageProvider`). **Local** filesystem in demo mode (persisted in the
 `storage` Docker volume); **Google Drive** and **S3** are pluggable. Project export streams a ZIP
 grouped into `GST / PAN / Financial / Technical / Others`.
 
 ### Docker
+
 `docker compose` orchestrates `postgres`, `api`, `frontend`, and `nginx`. The frontend is built
 from the sibling folder (`FRONTEND_CONTEXT`) and served behind the gateway.
 
@@ -89,8 +95,8 @@ TenderDocs/
 ## How the frontend talks to the backend
 
 1. The SPA calls `VITE_API_BASE_URL` (default `/api`), same-origin through the gateway.
-2. On first request `src/config/api.ts` logs in as the seeded admin
-   (`admin@tenderdocs.io` / `Admin@12345`), caches the JWT, and refreshes it on 401.
+2. Users sign in with Google (`/auth/google`); only a provisioned, active account may enter. The JWT
+   is cached and refreshed on 401. `/auth/me` returns the caller's role + resolved permission keys.
 3. Typed clients in `src/services/api` hit the API; `src/services/live.ts` maps DTOs to view
    types; React Query hooks feed the screens.
 
@@ -109,7 +115,9 @@ so it runs as-is — these are **not for production**. For a real deployment, fo
 [`deploy/SERVER-SETUP-RUNBOOK.md`](deploy/SERVER-SETUP-RUNBOOK.md) and
 [`deploy/PRE-DEPLOYMENT-CHECKLIST.md`](deploy/PRE-DEPLOYMENT-CHECKLIST.md).
 
-- **Seeded admin:** `admin@tenderdocs.io` / `Admin@12345` (the app auto-logs-in for you)
+- **Access:** sign in with Google. The startup seeder creates one Admin (`Seed:AdminEmail`, default
+  `tender1docs@gmail.com`); that Admin then creates the other users in **Administration → Users** and
+  assigns roles (Admin / Uploader / Approver / Viewer). There is no self-registration.
 - Reset everything (fresh DB + reseed): `docker compose down -v && docker compose up --build`
 
 ---
@@ -117,6 +125,7 @@ so it runs as-is — these are **not for production**. For a real deployment, fo
 ## Run locally (without Docker)
 
 Backend (needs .NET 8 SDK + PostgreSQL):
+
 ```bash
 cd TenderDocs/TenderDocs-Backend
 export ConnectionStrings__Default=
@@ -126,6 +135,7 @@ dotnet run --project src/TenderDocs.Api      # serves on http://localhost:8080
 ```
 
 Frontend (needs Node 20+):
+
 ```bash
 cd TenderDocs/TenderDocs-Frontend/frontend
 npm install
@@ -156,3 +166,15 @@ npm run dev                                   # http://localhost:5173, proxies /
   (`GET /api/projects/summary`), plus an idempotent demo-data seeder run on startup.
 - **Infra:** single nginx gateway (gzip, WebSocket upgrade, asset caching), Compose pointed at the
   external frontend folder, ready-to-run `.env` with the provided secrets.
+
+Step 3 — Reconnect Drive in the app (this writes the new secret into the DB):
+
+Settings → Storage → Disconnect Google Drive → Connect Google Drive → approve the Google popup.
+
+After Step 3, the .env and the database are back in sync, and uploads/previews work. That's the whole loop.
+
+Quick reference — what's where
+What Where to change it
+Google client secret / ID / redirect / folder the .env file (table above), then reconnect in Settings → Storage
+The source secret itself Google Cloud Console → Credentials → your OAuth client → reset/copy secret
+DB password, JWT secret, encryption key same .env file (then --force-recreate api)

@@ -35,7 +35,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       Swagger__Enabled: ${SWAGGER_ENABLED:-false}
-      Seed__Enabled: ${SEED_ENABLED:-false}
+      Seed__Enabled: ${SEED_ENABLED:-true}
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-tender1docs@gmail.com}
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Jwt__Secret: ${JWT_SECRET}
       Jwt__Issuer: ${JWT_ISSUER:-TenderDocs}
@@ -56,7 +57,11 @@ services:
   frontend:
     build:
       context: ../TenderDocs-Frontend/frontend
-    # The Google client id is baked in from TenderDocs-Frontend/frontend/.env at build time.
+      args:
+        # Baked into the SPA at build time. VITE_GOOGLE_CLIENT_ID must be set in .env for the
+        # "Sign in with Google" button to work in production.
+        VITE_API_BASE_URL: /api
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
 
   caddy:

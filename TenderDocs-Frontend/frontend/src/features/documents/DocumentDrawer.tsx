@@ -6,11 +6,11 @@ import { X, FileType2, Download, Check, Ban } from 'lucide-react';
 import { Button, Input, Select, StatusBadge, ApprovalBadge } from '@/components/ui';
 import { useProjects, useToast } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
-import { can } from '@/lib/access';
+import { can, Permission } from '@/lib/access';
 import { apiClients, saveBlob } from '@/services';
 import { DOCUMENT_CATEGORIES } from '@/types';
 import type { DocumentItem, ApprovalStatus } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, financialYearOptions } from '@/lib/utils';
 
 /* ---- global provider so any document click anywhere opens the same drawer ---- */
 type DrawerCtx = { open: (doc: DocumentItem) => void; close: () => void };
@@ -53,19 +53,21 @@ const clean = (v?: string | null) => (!v || v === '—' ? '' : v);
 // Tender Reference & Custom Category have no dedicated column yet, so they round-trip as
 // prefixed tags (ref:… / cat:…). Regular tags are kept separate.
 function splitTags(tags: string[]) {
-  let ref = '', cat = '';
+  let ref = '', cat = '', desc = '';
   const rest: string[] = [];
   for (const t of tags) {
     if (t.startsWith('ref:')) ref = t.slice(4);
     else if (t.startsWith('cat:')) cat = t.slice(4);
+    else if (t.startsWith('desc:')) desc = t.slice(5);
     else rest.push(t);
   }
-  return { ref, cat, rest };
+  return { ref, cat, desc, rest };
 }
-function mergeTags(rest: string[], ref: string, cat: string) {
+function mergeTags(rest: string[], ref: string, cat: string, desc: string) {
   const out = [...rest];
   if (ref.trim()) out.push(`ref:${ref.trim()}`);
   if (cat.trim()) out.push(`cat:${cat.trim()}`);
+  if (desc.trim()) out.push(`desc:${desc.trim()}`);
   return out;
 }
 
@@ -73,9 +75,9 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
   const qc = useQueryClient();
   const { push } = useToast();
   const { data: projects = [] } = useProjects();
-  const { role } = useAuth();
-  const canApprove = !!role && can(role, 'approve');
-  const canEdit = !!role && can(role, 'upload');
+  const { permissions } = useAuth();
+  const canApprove = can(permissions, Permission.DocumentsApprove);
+  const canEdit = can(permissions, Permission.DocumentsEdit);
 
   const [tab, setTab] = useState<'metadata' | 'preview'>('metadata');
   const [saving, setSaving] = useState(false);
@@ -96,7 +98,9 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
   const [expiry, setExpiry] = useState('');
   const [tenderRef, setTenderRef] = useState('');
   const [customCat, setCustomCat] = useState('');
+  const [othersDesc, setOthersDesc] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const fyOptions = financialYearOptions();
   const [tagInput, setTagInput] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -113,8 +117,8 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
     setAuthority(clean(doc.authority));
     setFy(clean(doc.financialYear));
     setExpiry(doc.expiryDate ? doc.expiryDate.slice(0, 10) : '');
-    const { ref, cat, rest } = splitTags(doc.tags ?? []);
-    setTenderRef(ref); setCustomCat(cat); setTags(rest);
+    const { ref, cat, desc, rest } = splitTags(doc.tags ?? []);
+    setTenderRef(ref); setCustomCat(cat); setOthersDesc(desc); setTags(rest);
     setNotes(doc.notes ?? '');
     setApproval(doc.approval);
     setApprovedBy(doc.approvedBy ?? null);
@@ -190,7 +194,7 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
         financialYear: fy.trim(),
         expiryDate: expiry || undefined,
         notes: notes,
-        tags: mergeTags(tags, tenderRef, customCat),
+        tags: mergeTags(tags, tenderRef, customCat, category === 'Other' ? othersDesc : ''),
       });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['documents'] }),
@@ -265,17 +269,33 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
                     </div>
                   </div>
                   <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
+                  <Field label="Requirement Category">
+                    <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                      {DOCUMENT_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </Select>
+                  </Field>
+
+                  {/* description shown only for the "Others" requirement category */}
+                  {category === 'Other' && (
+                    <Field label="Description">
+                      <textarea value={othersDesc} onChange={(e) => setOthersDesc(e.target.value)} rows={2} disabled={!canEdit}
+                        className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:opacity-60 dark:bg-[#12181D] dark:border-[#222A31] dark:text-slate-100"
+                        placeholder="Describe this document" />
+                    </Field>
+                  )}
+
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Document Type">
-                      <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                        {DOCUMENT_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    <Field label="Firm / Individual Name"><Input value={authority} onChange={(e) => setAuthority(e.target.value)} placeholder="—" /></Field>
+                    <Field label="Financial Year">
+                      <Select value={fy} onChange={(e) => setFy(e.target.value)}>
+                        <option value="">N/A</option>
+                        {fy && !fyOptions.includes(fy) && <option value={fy}>{fy}</option>}
+                        {fyOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                       </Select>
                     </Field>
-                    <Field label="Issuing Authority"><Input value={authority} onChange={(e) => setAuthority(e.target.value)} placeholder="—" /></Field>
-                    <Field label="Financial Year"><Input value={fy} onChange={(e) => setFy(e.target.value)} placeholder="FY 2024-25" /></Field>
                     <Field label="Expiry Date"><Input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} /></Field>
-                    <Field label="Tender Reference"><Input value={tenderRef} onChange={(e) => setTenderRef(e.target.value)} placeholder="NHAI/2025/12" /></Field>
-                    <Field label="Custom Category"><Input value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="e.g. Pre-qualification" /></Field>
+                    <Field label="Branch / Place"><Input value={tenderRef} onChange={(e) => setTenderRef(e.target.value)} placeholder="e.g. Hyderabad" /></Field>
+                    <Field label="Document Type"><Input value={customCat} onChange={(e) => setCustomCat(e.target.value)} placeholder="e.g. Pre-qualification" /></Field>
                   </div>
 
                   <Field label="Projects">

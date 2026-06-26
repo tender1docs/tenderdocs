@@ -82,4 +82,6 @@ export const DocumentsApi = {
 
   approve: (id: string) => api.post<DocumentDto>(`/documents/${id}/approve`),
   reject: (id: string, reason?: string) => api.post<DocumentDto>(`/documents/${id}/reject`, { reason }),
+  requestChanges: (id: string, comment?: string) =>
+    api.post<DocumentDto>(`/documents/${id}/request-changes`, { comment }),
 };

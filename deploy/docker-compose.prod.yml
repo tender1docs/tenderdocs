@@ -31,6 +31,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       Swagger__Enabled: ${SWAGGER_ENABLED:-false}
       Seed__Enabled: ${SEED_ENABLED:-true}
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-tender1docs@gmail.com}
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Jwt__Secret: ${JWT_SECRET}
       Jwt__Issuer: ${JWT_ISSUER:-TenderDocs}

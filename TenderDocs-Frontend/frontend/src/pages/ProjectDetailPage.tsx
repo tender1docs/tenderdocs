@@ -76,11 +76,14 @@ export default function ProjectDetailPage() {
       {/* Hero header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-5 rounded-2xl border border-line bg-gradient-to-br from-hero-from to-hero-to p-6 dark:border-[#1A2127] dark:from-[#10211E] dark:to-[#0E1A18] lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 text-brand-600 shadow-card dark:bg-[#12181D]"><FolderKanban className="h-6 w-6" /></span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-ink dark:text-slate-100">{project.name}</h1>
-            <p className="text-sm text-ink-soft dark:text-slate-300">{project.description || 'No description'}</p>
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-brand-600 shadow-card dark:bg-[#12181D]"><FolderKanban className="h-6 w-6" /></span>
+          <div className="min-w-0">
+            {/* name + description on the SAME line; both truncate so a long description never overflows */}
+            <div className="flex min-w-0 items-baseline gap-2">
+              <h1 className="max-w-full shrink-0 truncate text-2xl font-bold tracking-tight text-ink dark:text-slate-100" title={project.name}>{project.name}</h1>
+              <span className="min-w-0 flex-1 truncate text-sm text-ink-muted" title={project.description || 'No description'}>{project.description || 'No description'}</span>
+            </div>
             <p className="mt-2 text-sm text-ink-muted"><span className="font-semibold text-ink dark:text-slate-100">{pluralize(docs.length, 'document')}</span>&nbsp;&nbsp;&nbsp;Created {fmtDate(project.createdAt)}</p>
           </div>
         </div>

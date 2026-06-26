@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { UploadCloud, CheckCircle2, FileText, X } from 'lucide-react';
 import { Button, Modal, Input, Select } from '@/components/ui';
+import { useConfirm } from '@/components/ui/confirm';
 import { useToast } from '@/hooks';
 import { apiClients } from '@/services';
 import { DOCUMENT_CATEGORIES } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, financialYearOptions, financialYearForDate } from '@/lib/utils';
 
 /**
  * Upload a document with full metadata. When `projectId` is supplied (uploading from inside a
@@ -23,6 +24,7 @@ export function UploadDialog({
 }) {
   const qc = useQueryClient();
   const { push } = useToast();
+  const confirm = useConfirm();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [drag, setDrag] = useState(false);
@@ -37,13 +39,27 @@ export function UploadDialog({
   const [tags, setTags] = useState('');
   const [tenderRef, setTenderRef] = useState('');
   const [customCategory, setCustomCategory] = useState('');
+  const [othersDesc, setOthersDesc] = useState('');
+  const [notes, setNotes] = useState('');
   const [expiryRequired, setExpiryRequired] = useState(false);
   const [expiryDate, setExpiryDate] = useState('');
 
+  const fyOptions = financialYearOptions();
+
   function reset() {
     setFile(null); setPhase('form'); setCategory('Gst'); setAuthority('');
-    setFinancialYear(''); setTags(''); setTenderRef(''); setCustomCategory(''); setExpiryRequired(false); setExpiryDate('');
+    setFinancialYear(''); setTags(''); setTenderRef(''); setCustomCategory(''); setOthersDesc(''); setNotes('');
+    setExpiryRequired(false); setExpiryDate('');
     setSavings(null);
+  }
+
+  // When an expiry date is picked, default the financial year to the one it falls in.
+  function onExpiryDate(value: string) {
+    setExpiryDate(value);
+    if (value && !financialYear) {
+      const fy = financialYearForDate(value);
+      if (fy) setFinancialYear(fy);
+    }
   }
   function close() { onClose(); setTimeout(reset, 200); }
 
@@ -60,6 +76,15 @@ export function UploadDialog({
   async function submit() {
     if (!file) { push({ title: 'Choose a file first', tone: 'danger' }); return; }
     if (expiryRequired && !expiryDate) { push({ title: 'Set an expiry date', tone: 'danger' }); return; }
+
+    const ok = await confirm({
+      title: 'Upload this document?',
+      message: `“${file.name}” will be added${projectId ? ' and linked to this project' : ' to your library'}.`,
+      confirmText: 'Yes, upload',
+      cancelText: 'No',
+    });
+    if (!ok) return;
+
     setPhase('uploading');
     try {
       const result = await apiClients.DocumentsApi.upload({
@@ -67,11 +92,13 @@ export function UploadDialog({
         documentType: category,
         issuingAuthority: authority.trim() || undefined,
         financialYear: financialYear.trim() || undefined,
+        notes: notes.trim() || undefined,
         expiryDate: expiryRequired && expiryDate ? expiryDate : undefined,
         tags: (() => {
           const list = tags.split(',').map((t) => t.trim()).filter(Boolean);
           if (tenderRef.trim()) list.push(`ref:${tenderRef.trim()}`);
           if (customCategory.trim()) list.push(`cat:${customCategory.trim()}`);
+          if (category === 'Other' && othersDesc.trim()) list.push(`desc:${othersDesc.trim()}`);
           return list.length ? list.join(',') : undefined;
         })(),
         projectId,
@@ -148,33 +175,49 @@ export function UploadDialog({
           )}
 
           {/* metadata */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-3">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Requirement category</span>
               <Select value={category} onChange={(e) => setCategory(e.target.value)}>
                 {DOCUMENT_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </Select>
             </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Issuing authority</span>
-              <Input value={authority} onChange={(e) => setAuthority(e.target.value)} placeholder="e.g. GST Department" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Financial year</span>
-              <Input value={financialYear} onChange={(e) => setFinancialYear(e.target.value)} placeholder="e.g. FY 2024-25" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Tender reference #</span>
-              <Input value={tenderRef} onChange={(e) => setTenderRef(e.target.value)} placeholder="e.g. NHAI/2025/12" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Custom category</span>
-              <Input value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="e.g. Pre-qualification" />
-            </label>
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Tags (optional)</span>
-              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma, separated" />
-            </label>
+
+            {/* description shown only when "Others" is the requirement category */}
+            {category === 'Other' && (
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Description</span>
+                <textarea value={othersDesc} onChange={(e) => setOthersDesc(e.target.value)} rows={2}
+                  className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:bg-[#12181D] dark:border-[#222A31] dark:text-slate-100"
+                  placeholder="Describe this document" />
+              </label>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Firm / Individual name</span>
+                <Input value={authority} onChange={(e) => setAuthority(e.target.value)} placeholder="e.g. ABC Constructions Pvt Ltd" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Financial year</span>
+                <Select value={financialYear} onChange={(e) => setFinancialYear(e.target.value)}>
+                  <option value="">N/A</option>
+                  {fyOptions.map((fy) => <option key={fy} value={fy}>{fy}</option>)}
+                </Select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Branch / Place</span>
+                <Input value={tenderRef} onChange={(e) => setTenderRef(e.target.value)} placeholder="e.g. Hyderabad" />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Document type</span>
+                <Input value={customCategory} onChange={(e) => setCustomCategory(e.target.value)} placeholder="e.g. Pre-qualification" />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Tags (optional)</span>
+                <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="comma, separated" />
+              </label>
+            </div>
           </div>
 
           {/* expiry */}
@@ -187,10 +230,18 @@ export function UploadDialog({
             {expiryRequired && (
               <div className="mt-3">
                 <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Expiry date</span>
-                <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
+                <Input type="date" value={expiryDate} onChange={(e) => onExpiryDate(e.target.value)} />
               </div>
             )}
           </div>
+
+          {/* notes */}
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink-soft dark:text-slate-300">Notes</span>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink outline-none placeholder:text-ink-faint focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:bg-[#12181D] dark:border-[#222A31] dark:text-slate-100"
+              placeholder="Optional notes (visible & searchable)" />
+          </label>
 
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={close}>Cancel</Button>

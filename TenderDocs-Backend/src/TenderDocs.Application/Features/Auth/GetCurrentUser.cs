@@ -18,7 +18,6 @@ public class GetCurrentUserHandler : IRequestHandler<GetCurrentUserQuery, UserDt
         var user = await _db.Users.Include(u => u.Organization)
             .FirstOrDefaultAsync(u => u.Id == _current.UserId, ct)
             ?? throw new NotFoundException("User", _current.UserId ?? Guid.Empty);
-        return new UserDto(user.Id, user.Email, user.FullName, user.Initials, user.Role.ToString(),
-            user.OrganizationId, user.Organization.Name, user.Organization.DemoMode);
+        return UserDto.From(user, user.Organization.Name, user.Organization.DemoMode);
     }
 }

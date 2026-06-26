@@ -16,7 +16,7 @@ someone else's credential ever reaches production. Work top to bottom; tick each
 | --- | --- | --- |
 | `deploy/.env` | **No** (you create it from `.env.example`) | All production secrets for the server build |
 | `deploy/.env.example` | Yes (placeholders only) | Template — no real values |
-| `TenderDocs-Frontend/frontend/.env` | **No** | SPA build-time values (API URL, Google client id, demo creds) |
+| `TenderDocs-Frontend/frontend/.env` | **No** | SPA build-time values (API URL, Google client id) |
 | `TenderDocs-Backend/.env` | **No** | Local-dev secrets (do **not** ship this to prod) |
 | `appsettings.Development.json` | Yes | Dev-only secrets, clearly marked `change-me`; never used in Production |
 
@@ -81,45 +81,28 @@ In `TenderDocs-Frontend/frontend/.env` (baked into the SPA at build time):
 - [ ] `VITE_GOOGLE_CLIENT_ID` → **must equal** the backend `GOOGLE_CLIENT_ID` above
       (leave empty to hide the "Sign in with Google" button)
 
-> Storage choice: leave the Google values empty to run on **Local storage** (files on the
-> server's `storage` volume — pairs naturally with the 500 GB disk). Fill them in to store in
-> **Google Drive** instead. Either way, login can use email/password.
+> Storage choice: documents live on the server's `storage` volume (**Local storage**, pairs with
+> the 500 GB disk) until an Admin connects **Google Drive** from Settings → Storage. Note: the
+> Google **client id** is always required (it's how everyone signs in); the Drive secret/folder are
+> only needed to store files in Drive rather than locally.
 
 ---
 
-## 4. Default accounts & demo data (CRITICAL — confidentiality)
+## 4. Accounts & seeding (controlled access)
 
-The app seeds a demo organization with **well-known passwords**, and the login screen can
-**prefill** them. Both must be handled before exposing the app.
+There are **no demo accounts and no demo data**. On a fresh database the seeder creates the
+permission catalog and exactly **one** user — `SEED_ADMIN_EMAIL` — as **Admin** (Google sign-in
+only, no password). Everyone else is created by that Admin in **Administration → Users**, and
+**unknown Google accounts are rejected** (no self-registration).
 
-Seeded accounts (from `DbSeeder.cs`) — public knowledge, must not exist in prod with these passwords:
-
-| Email | Password | Role |
-| --- | --- | --- |
-| `admin@tenderdocs.io` | `Admin@12345` | Admin |
-| `reviewer@tenderdocs.io` | `Reviewer@12345` | Reviewer/Approver |
-| `viewer@tenderdocs.io` | `Viewer@12345` | Viewer |
-| `ravi@tenderdocs.io` | — | (no login) |
-
-Choose **one** path:
-
-**Path A — no demo data (recommended for a clean client tenant):**
-- [ ] In `deploy/.env`, keep `SEED_ENABLED=false`.
-- [ ] Bootstrap the first real admin instead (see §8).
-
-**Path B — seed once to get an initial admin, then lock down:**
-- [ ] Set `SEED_ENABLED=true` for the first boot only.
-- [ ] Immediately log in and **change the admin password**, delete/disable `reviewer@`,
-      `viewer@`, `ravi@`, and remove the sample demo documents/projects.
-- [ ] Set `SEED_ENABLED=false` and redeploy so seeding never reruns.
-
-Login screen (both paths):
-- [ ] In `TenderDocs-Frontend/frontend/.env`, **clear** the demo credentials so they are not
-      shown on the sign-in page:
-      ```env
-      VITE_DEMO_EMAIL=
-      VITE_DEMO_PASSWORD=
-      ```
+- [ ] In `deploy/.env`, set `SEED_ADMIN_EMAIL` to the real Google account that will administer the
+      app (default `tender1docs@gmail.com`), and keep `SEED_ENABLED=true`.
+- [ ] The frontend has **no** prefilled credentials (the old `VITE_DEMO_*` are gone) — nothing to clear.
+- [ ] After first sign-in, create your team in Administration → Users and assign project access.
+      Roles: **Admin** (full), **Uploader** (document work), **Approver** (approve/reject only),
+      **Viewer** (read-only).
+- [ ] Reminder: each user's email must be a real Google account **and** allowed by your OAuth client
+      (added under "Test users", or the app published) — see §3.
 
 ---
 
@@ -176,8 +159,8 @@ awk -F= '/^(POSTGRES_PASSWORD|JWT_SECRET|ENCRYPTION_KEY)=/{print $1": "length($2
 ```
 
 Then, in a browser:
-- [ ] Sign-in page does **not** display demo credentials.
-- [ ] The seeded `admin@tenderdocs.io / Admin@12345` login **fails** (or password was changed).
+- [ ] Sign-in page shows only the **Sign in with Google** button (no credentials).
+- [ ] Signing in with a Google account the Admin has **not** added is **rejected** (no self-registration).
 - [ ] HTTPS padlock is valid for your domain.
 - [ ] `https://<domain>/swagger` is unreachable (Swagger disabled).
 - [ ] A test upload succeeds and shows the "compressed" size badge.

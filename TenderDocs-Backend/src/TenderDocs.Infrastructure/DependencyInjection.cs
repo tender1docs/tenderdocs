@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IGoogleOAuthService, GoogleOAuthService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IAuditLogger, AuditLogger>();
 
         // ---- Storage -----------------------------------------------------
         services.AddSingleton<LocalStorageProvider>();
@@ -54,7 +55,7 @@ public static class DependencyInjection
         // ---- Document compression (shrinks files before they reach storage) ----
         services.AddSingleton<IDocumentCompressor, DocumentCompressor>();
 
-        // ---- Demo data seeder ----
+        // ---- Startup seeder (permission catalog + bootstrap admin) ----
         services.AddScoped<DbSeeder>();
 
         // ---- AuthN (JWT bearer) ------------------------------------------

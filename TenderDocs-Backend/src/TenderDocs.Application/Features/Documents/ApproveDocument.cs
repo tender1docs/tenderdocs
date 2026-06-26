@@ -13,28 +13,28 @@ public record RejectDocumentCommand(Guid Id, string? Reason) : IRequest<Document
 
 public class ApproveDocumentHandler : IRequestHandler<ApproveDocumentCommand, DocumentDto>
 {
-    private readonly IAppDbContext _db; private readonly ICurrentUser _current; private readonly IDateTime _clock;
-    public ApproveDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock)
-        => (_db, _current, _clock) = (db, current, clock);
+    private readonly IAppDbContext _db; private readonly ICurrentUser _current; private readonly IDateTime _clock; private readonly IAuditLogger _audit;
+    public ApproveDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock, IAuditLogger audit)
+        => (_db, _current, _clock, _audit) = (db, current, clock, audit);
 
     public Task<DocumentDto> Handle(ApproveDocumentCommand r, CancellationToken ct)
-        => DocumentReview.ApplyAsync(_db, _current, _clock, r.Id, DocumentApprovalStatus.Approved, null, ct);
+        => DocumentReview.ApplyAsync(_db, _current, _clock, _audit, r.Id, DocumentApprovalStatus.Approved, null, ct);
 }
 
 public class RejectDocumentHandler : IRequestHandler<RejectDocumentCommand, DocumentDto>
 {
-    private readonly IAppDbContext _db; private readonly ICurrentUser _current; private readonly IDateTime _clock;
-    public RejectDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock)
-        => (_db, _current, _clock) = (db, current, clock);
+    private readonly IAppDbContext _db; private readonly ICurrentUser _current; private readonly IDateTime _clock; private readonly IAuditLogger _audit;
+    public RejectDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock, IAuditLogger audit)
+        => (_db, _current, _clock, _audit) = (db, current, clock, audit);
 
     public Task<DocumentDto> Handle(RejectDocumentCommand r, CancellationToken ct)
-        => DocumentReview.ApplyAsync(_db, _current, _clock, r.Id, DocumentApprovalStatus.Rejected, r.Reason, ct);
+        => DocumentReview.ApplyAsync(_db, _current, _clock, _audit, r.Id, DocumentApprovalStatus.Rejected, r.Reason, ct);
 }
 
 internal static class DocumentReview
 {
     public static async Task<DocumentDto> ApplyAsync(IAppDbContext db, ICurrentUser current, IDateTime clock,
-        Guid id, DocumentApprovalStatus status, string? reason, CancellationToken ct)
+        IAuditLogger audit, Guid id, DocumentApprovalStatus status, string? reason, CancellationToken ct)
     {
         var d = await db.Documents
             .FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == current.OrganizationId && !x.IsDeleted, ct)
@@ -48,6 +48,9 @@ internal static class DocumentReview
             : null;
         d.UpdatedAt = clock.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        await audit.LogAsync(AuditAction.Update, "Document", d.Id,
+            new { d.Name, approval = status.ToString(), reason }, ct: ct);
 
         var saved = await db.Documents.Include(x => x.UploadedBy).Include(x => x.ApprovedBy)
             .Include(x => x.DocumentTags).ThenInclude(t => t.Tag).FirstAsync(x => x.Id == d.Id, ct);

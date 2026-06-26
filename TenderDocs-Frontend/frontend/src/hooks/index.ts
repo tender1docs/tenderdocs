@@ -56,6 +56,16 @@ export function useCreateProject() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; name?: string; description?: string }) => projectService.update(input),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project', v.id] });
+    },
+  });
+}
 export function useDeleteProject() {
   const qc = useQueryClient();
   return useMutation({

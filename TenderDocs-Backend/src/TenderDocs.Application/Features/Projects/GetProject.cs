@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TenderDocs.Application.Common.Exceptions;
 using TenderDocs.Application.Common.Interfaces;
+using TenderDocs.Application.Features.Admin;
 using TenderDocs.Application.Features.Documents;
 
 namespace TenderDocs.Application.Features.Projects;
@@ -16,13 +17,16 @@ public class GetProjectHandler : IRequestHandler<GetProjectQuery, ProjectDetailD
 
     public async Task<ProjectDetailDto> Handle(GetProjectQuery q, CancellationToken ct)
     {
+        // Non-admins may only open a project they're assigned to (otherwise it's "not found" to them).
+        var isAdmin = ProjectAccessScope.IsAdmin(_current);
         var p = await _db.Projects
             .AsNoTracking()   // read-only projection; also avoids just-soft-deleted rows leaking back via fixup
             .Include(x => x.RequirementCategories).ThenInclude(c => c.Requirements)
             .Include(x => x.Requirements)
             .Include(x => x.Assignments).ThenInclude(a => a.Document).ThenInclude(d => d.UploadedBy)
             .Include(x => x.Assignments).ThenInclude(a => a.Document).ThenInclude(d => d.DocumentTags).ThenInclude(t => t.Tag)
-            .FirstOrDefaultAsync(x => x.Id == q.Id && x.OrganizationId == _current.OrganizationId && !x.IsDeleted, ct)
+            .FirstOrDefaultAsync(x => x.Id == q.Id && x.OrganizationId == _current.OrganizationId && !x.IsDeleted
+                && (isAdmin || _db.UserProjects.Any(up => up.ProjectId == x.Id && up.UserId == _current.UserId)), ct)
             ?? throw new NotFoundException("Project", q.Id);
 
         var docs = p.Assignments.Where(a => !a.Document.IsDeleted)

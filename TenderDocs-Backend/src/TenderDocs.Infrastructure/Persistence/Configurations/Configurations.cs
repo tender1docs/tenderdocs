@@ -205,3 +205,37 @@ public class StorageConnectionConfig : IEntityTypeConfiguration<StorageConnectio
         b.HasQueryFilter(x => !x.IsDeleted);
     }
 }
+
+public class PermissionConfig : IEntityTypeConfiguration<Permission>
+{
+    public void Configure(EntityTypeBuilder<Permission> b)
+    {
+        b.ToTable("permissions");
+        b.Property(x => x.Key).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Category).HasMaxLength(60).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(200).IsRequired();
+        b.HasIndex(x => x.Key).IsUnique();
+    }
+}
+
+public class RolePermissionConfig : IEntityTypeConfiguration<RolePermission>
+{
+    public void Configure(EntityTypeBuilder<RolePermission> b)
+    {
+        b.ToTable("role_permissions");
+        b.Property(x => x.PermissionKey).HasMaxLength(100).IsRequired();
+        b.HasIndex(x => new { x.Role, x.PermissionKey }).IsUnique();
+    }
+}
+
+public class UserProjectConfig : IEntityTypeConfiguration<UserProject>
+{
+    public void Configure(EntityTypeBuilder<UserProject> b)
+    {
+        b.ToTable("user_projects");
+        b.HasIndex(x => new { x.UserId, x.ProjectId }).IsUnique();
+        b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+        b.HasQueryFilter(x => !x.IsDeleted);
+    }
+}
