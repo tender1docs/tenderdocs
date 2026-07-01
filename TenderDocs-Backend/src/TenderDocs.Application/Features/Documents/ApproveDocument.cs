@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TenderDocs.Application.Common.Exceptions;
 using TenderDocs.Application.Common.Interfaces;
 using TenderDocs.Domain.Enums;
+using TenderDocs.Domain.Interfaces;
 
 namespace TenderDocs.Application.Features.Documents;
 
@@ -14,11 +15,15 @@ public record RejectDocumentCommand(Guid Id, string? Reason) : IRequest<Document
 public class ApproveDocumentHandler : IRequestHandler<ApproveDocumentCommand, DocumentDto>
 {
     private readonly IAppDbContext _db; private readonly ICurrentUser _current; private readonly IDateTime _clock; private readonly IAuditLogger _audit;
-    public ApproveDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock, IAuditLogger audit)
-        => (_db, _current, _clock, _audit) = (db, current, clock, audit);
+    private readonly IStorageProviderFactory _storageFactory; private readonly IGoogleOAuthService _google;
+    public ApproveDocumentHandler(IAppDbContext db, ICurrentUser current, IDateTime clock, IAuditLogger audit,
+        IStorageProviderFactory storageFactory, IGoogleOAuthService google)
+        => (_db, _current, _clock, _audit, _storageFactory, _google) = (db, current, clock, audit, storageFactory, google);
 
+    // On approval, promote the file from the staging folder to the master (client-facing) Drive folder.
     public Task<DocumentDto> Handle(ApproveDocumentCommand r, CancellationToken ct)
-        => DocumentReview.ApplyAsync(_db, _current, _clock, _audit, r.Id, DocumentApprovalStatus.Approved, null, ct);
+        => DocumentReview.ApplyAsync(_db, _current, _clock, _audit, r.Id, DocumentApprovalStatus.Approved, null, ct,
+            _storageFactory, _google.GetDriveConfig().MasterFolderId);
 }
 
 public class RejectDocumentHandler : IRequestHandler<RejectDocumentCommand, DocumentDto>
@@ -34,11 +39,26 @@ public class RejectDocumentHandler : IRequestHandler<RejectDocumentCommand, Docu
 internal static class DocumentReview
 {
     public static async Task<DocumentDto> ApplyAsync(IAppDbContext db, ICurrentUser current, IDateTime clock,
-        IAuditLogger audit, Guid id, DocumentApprovalStatus status, string? reason, CancellationToken ct)
+        IAuditLogger audit, Guid id, DocumentApprovalStatus status, string? reason, CancellationToken ct,
+        IStorageProviderFactory? storageFactory = null, string? masterFolderId = null)
     {
         var d = await db.Documents
             .FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == current.OrganizationId && !x.IsDeleted, ct)
             ?? throw new NotFoundException("Document", id);
+
+        // When approved, move the underlying file out of the staging folder and into the master
+        // (client-facing) Google Drive folder. Drive-backed docs only, and only when a master folder
+        // is configured. A move failure aborts the approval so the DB and Drive stay consistent.
+        if (status == DocumentApprovalStatus.Approved
+            && storageFactory is not null
+            && !string.IsNullOrWhiteSpace(masterFolderId)
+            && d.StorageProvider == StorageProviderType.GoogleDrive
+            && !string.IsNullOrWhiteSpace(d.StorageKey))
+        {
+            var provider = await storageFactory.GetActiveProviderAsync(d.OrganizationId, ct);
+            if (provider.ProviderType == StorageProviderType.GoogleDrive)
+                d.StorageKey = await provider.MoveFileAsync(d.StorageKey, masterFolderId!, ct);
+        }
 
         d.ApprovalStatus = status;
         d.ApprovedById = current.UserId;

@@ -77,7 +77,7 @@ public interface IGoogleOAuthService
 }
 
 /// <summary>App-level Google Drive credentials/config (from environment / appsettings).</summary>
-public record GoogleDriveAppConfig(string ClientId, string ClientSecret, string RedirectUri, string FolderId)
+public record GoogleDriveAppConfig(string ClientId, string ClientSecret, string RedirectUri, string FolderId, string MasterFolderId = "")
 {
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret)

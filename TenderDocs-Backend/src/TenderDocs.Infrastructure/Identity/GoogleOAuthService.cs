@@ -40,7 +40,8 @@ public class GoogleOAuthService : IGoogleOAuthService
         _config["Google:ClientId"] ?? "",
         _config["Google:ClientSecret"] ?? "",
         _config["Google:RedirectUri"] ?? "",
-        _config["Google:DriveFolderId"] ?? "");
+        _config["Google:DriveFolderId"] ?? "",
+        _config["Google:DriveMasterFolderId"] ?? "");
 
     public string BuildDriveAuthUrl(string state)
     {

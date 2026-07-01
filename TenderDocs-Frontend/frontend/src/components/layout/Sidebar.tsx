@@ -34,7 +34,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="flex h-full w-64 flex-col border-r border-line bg-white dark:border-[#1A2127] dark:bg-[#0E1317]">
       <div className="px-5 pt-5 pb-4">
-        <Logo />
+        <NavLink
+          to="/dashboard"
+          onClick={onNavigate}
+          aria-label="Go to Overview"
+          className="inline-block rounded-xl transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <Logo />
+        </NavLink>
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
