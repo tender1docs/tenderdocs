@@ -23,7 +23,7 @@ public class ListApprovalQueueHandler : IRequestHandler<ListApprovalQueueQuery, 
         var raw = await _db.Documents
             .Where(d => d.OrganizationId == _current.OrganizationId && !d.IsDeleted
                 && d.ApprovalStatus == DocumentApprovalStatus.Pending)
-            .OrderBy(d => d.CreatedAt)
+            .OrderByDescending(d => d.CreatedAt)   // newest awaiting-review on top
             .Select(d => new
             {
                 d.Id, d.Name, d.DocumentType, d.CreatedAt, d.ApprovalStatus,

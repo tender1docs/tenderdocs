@@ -50,6 +50,7 @@ public class GoogleDriveStorageProvider : IStorageProvider
         };
         var request = _drive.Files.Create(meta, content, contentType);
         request.Fields = "id, size";
+        request.SupportsAllDrives = true;
         var progress = await request.UploadAsync(ct);
         if (progress.Status != Google.Apis.Upload.UploadStatus.Completed)
             throw new IOException($"Google Drive upload failed: {progress.Exception?.Message}");
@@ -60,23 +61,31 @@ public class GoogleDriveStorageProvider : IStorageProvider
     public async Task<Stream> DownloadFileAsync(string key, CancellationToken ct = default)
     {
         var ms = new MemoryStream();
-        await _drive.Files.Get(key).DownloadAsync(ms, ct);
+        var get = _drive.Files.Get(key);
+        get.SupportsAllDrives = true;
+        await get.DownloadAsync(ms, ct);
         ms.Position = 0;
         return ms;
     }
 
     public Task DeleteFileAsync(string key, CancellationToken ct = default)
-        => _drive.Files.Delete(key).ExecuteAsync(ct);
+    {
+        var del = _drive.Files.Delete(key);
+        del.SupportsAllDrives = true;
+        return del.ExecuteAsync(ct);
+    }
 
     public async Task<string> MoveFileAsync(string key, string destinationFolderKey, CancellationToken ct = default)
     {
         var get = _drive.Files.Get(key);
         get.Fields = "parents";
+        get.SupportsAllDrives = true;
         var file = await get.ExecuteAsync(ct);
         var update = _drive.Files.Update(new DriveData.File(), key);
         update.AddParents = string.IsNullOrEmpty(destinationFolderKey) ? _rootFolderId : destinationFolderKey;
         update.RemoveParents = file.Parents is null ? null : string.Join(",", file.Parents);
         update.Fields = "id, parents";
+        update.SupportsAllDrives = true;
         await update.ExecuteAsync(ct);
         return key;
     }
@@ -90,6 +99,7 @@ public class GoogleDriveStorageProvider : IStorageProvider
         };
         var request = _drive.Files.Create(meta);
         request.Fields = "id";
+        request.SupportsAllDrives = true;
         var created = await request.ExecuteAsync(ct);
         return created.Id;
     }
@@ -107,6 +117,8 @@ public class GoogleDriveStorageProvider : IStorageProvider
         var list = _drive.Files.List();
         list.Q = $"'{folderId}' in parents and trashed = false";
         list.Fields = "files(id, name, mimeType, size)";
+        list.SupportsAllDrives = true;
+        list.IncludeItemsFromAllDrives = true;
         var result = await list.ExecuteAsync(ct);
         foreach (var f in result.Files)
         {
