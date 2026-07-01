@@ -57,6 +57,12 @@ public class StorageProviderFactory : IStorageProviderFactory
     {
         var json = _protector.Decrypt(encrypted);
         var creds = JsonSerializer.Deserialize<GoogleDriveCredentials>(json)!;
+        // The staging (upload) folder is captured into the connection at connect time. Let the
+        // configured Google:DriveFolderId override it so the upload target can be changed via env
+        // alone — no Drive reconnect needed. Tokens/clientId in the stored creds are unaffected.
+        var envFolder = _config["Google:DriveFolderId"];
+        if (!string.IsNullOrWhiteSpace(envFolder))
+            creds = creds with { FolderId = envFolder };
         return new GoogleDriveStorageProvider(creds);
     }
 }
