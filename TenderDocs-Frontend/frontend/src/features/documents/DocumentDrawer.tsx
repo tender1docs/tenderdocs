@@ -6,6 +6,7 @@ import { X, FileType2, Download, Check, Ban } from 'lucide-react';
 import { Button, Input, Select, StatusBadge, ApprovalBadge } from '@/components/ui';
 import { useProjects, useToast } from '@/hooks';
 import { useAuth } from '@/auth/AuthProvider';
+import { useConfirm } from '@/components/ui/confirm';
 import { can, Permission } from '@/lib/access';
 import { apiClients, saveBlob } from '@/services';
 import { DOCUMENT_CATEGORIES } from '@/types';
@@ -74,6 +75,7 @@ function mergeTags(rest: string[], ref: string, cat: string, desc: string) {
 function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { push } = useToast();
+  const confirm = useConfirm();
   const { data: projects = [] } = useProjects();
   const { permissions } = useAuth();
   const canApprove = can(permissions, Permission.DocumentsApprove);
@@ -364,10 +366,14 @@ function DocumentDrawer({ doc, onClose }: { doc: DocumentItem | null; onClose: (
                 {canApprove && !rejecting && (
                   <>
                     <Button variant="secondary" size="sm" onClick={() => setRejecting(true)} disabled={approval === 'rejected'}><Ban className="h-4 w-4" /> Reject</Button>
-                    <Button size="sm" loading={reviewBusy} onClick={() => review('approve')} disabled={approval === 'approved'}><Check className="h-4 w-4" /> Approve</Button>
+                    <Button size="sm" loading={reviewBusy} onClick={async () => {
+                      if (await confirm({ title: 'Approve document?', message: `"${doc.name}" will be marked approved and moved to the master folder.`, confirmText: 'Approve' })) review('approve');
+                    }} disabled={approval === 'approved'}><Check className="h-4 w-4" /> Approve</Button>
                   </>
                 )}
-                {tab === 'metadata' && canEdit && <Button size="sm" loading={saving} onClick={save}>Save changes</Button>}
+                {tab === 'metadata' && canEdit && <Button size="sm" loading={saving} onClick={async () => {
+                  if (await confirm({ title: 'Save changes?', message: `Update the details for "${doc.name}"?`, confirmText: 'Save' })) save();
+                }}>Save changes</Button>}
               </div>
             </div>
           </motion.aside>

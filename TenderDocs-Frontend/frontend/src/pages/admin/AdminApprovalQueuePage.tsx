@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckSquare, Check, X, MessageSquare, FileType2 } from 'lucide-react';
 import { Card, Button, Skeleton, EmptyState, Modal, Input } from '@/components/ui';
 import { useToast } from '@/hooks';
+import { useConfirm } from '@/components/ui/confirm';
 import { AdminApi, DocumentsApi } from '@/services/api';
 import { ApiError } from '@/config/api';
 
@@ -12,6 +13,7 @@ const QK = ['admin', 'approvals'];
 export default function AdminApprovalQueuePage() {
   const qc = useQueryClient();
   const { push } = useToast();
+  const confirm = useConfirm();
   const { data, isLoading } = useQuery({ queryKey: QK, queryFn: () => AdminApi.approvals() });
 
   const [dialog, setDialog] = useState<{ id: string; name: string; mode: 'reject' | 'changes' } | null>(null);
@@ -69,7 +71,9 @@ export default function AdminApprovalQueuePage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" loading={pending} onClick={() => approve.mutate(d.documentId)}>
+                  <Button size="sm" loading={pending} onClick={async () => {
+                    if (await confirm({ title: 'Approve document?', message: `"${d.name}" will be moved to the approved (master) folder.`, confirmText: 'Approve' })) approve.mutate(d.documentId);
+                  }}>
                     <Check className="h-4 w-4" /> Approve
                   </Button>
                   <Button variant="secondary" size="sm" disabled={pending}
