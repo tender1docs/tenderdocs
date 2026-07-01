@@ -9,6 +9,17 @@ import { lazy, Suspense, useEffect } from 'react';
 import { router } from '@/routes';
 import './styles.css';
 
+// After a redeploy, a tab still running the previous build holds stale chunk filenames;
+// navigating to a lazy route then fails to fetch the (now-removed) chunk. Reload once to
+// pick up the fresh index.html + chunks. The short time-guard prevents a reload loop.
+window.addEventListener('vite:preloadError', () => {
+  const now = Date.now();
+  const last = Number(sessionStorage.getItem('chunkReloadedAt') || '0');
+  if (now - last < 15_000) return;
+  sessionStorage.setItem('chunkReloadedAt', String(now));
+  window.location.reload();
+});
+
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 
 const queryClient = new QueryClient({
